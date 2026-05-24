@@ -1,0 +1,68 @@
+# =============================================================================
+# LIVE Trading Mode Overlay
+# Kullanım: docker compose -f docker-compose.yml -f docker-compose.live.yml up -d
+# =============================================================================
+# UYARI: Bu mod GERÇEK PARA ile çalışır.
+# Sadece tüm promotion criteria'ları geçildikten sonra ve canary ölçekleme
+# protokolüne uyularak başlatılmalıdır.
+#
+# Ölçekleme: %10 → %25 → %50 → %100 (her seviye 14 gün)
+# Manuel onay gerekli: scripts/promote_to_next_stage.sh
+# =============================================================================
+
+services:
+  agent-market-scanner:
+    environment:
+      MACTS_MODE: live
+
+  agent-data-collection:
+    environment:
+      MACTS_MODE: live
+
+  agent-feature-engineering:
+    environment:
+      MACTS_MODE: live
+
+  agent-per-coin-learning:
+    environment:
+      MACTS_MODE: live
+
+  agent-risk-management:
+    environment:
+      MACTS_MODE: live
+
+  agent-signal-generation:
+    environment:
+      MACTS_MODE: live
+
+  agent-execution:
+    environment:
+      MACTS_MODE: live
+      # Canary trafiği config.yaml'den okunur (canary_traffic_pct)
+
+  # Live modda simulation paralel olarak çalışabilir (A/B karşılaştırma için)
+  agent-simulation:
+    environment:
+      MACTS_MODE: live
+
+  agent-portfolio-manager:
+    environment:
+      MACTS_MODE: live
+
+  agent-monitoring:
+    environment:
+      MACTS_MODE: live
+
+  agent-model-registry:
+    environment:
+      MACTS_MODE: live
+
+  # CB live modda KRİTİK
+  agent-circuit-breaker:
+    environment:
+      MACTS_MODE: live
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 0   # Sürekli yeniden başlat (asla durmamalı)

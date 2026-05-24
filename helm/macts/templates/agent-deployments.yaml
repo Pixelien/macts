@@ -1,0 +1,78 @@
+{{/*
+=============================================================================
+Generic Agent Deployment Template
+=============================================================================
+Tüm 13 agent için ortak Deployment + Service üretir.
+=============================================================================
+*/}}
+
+{{- range $name, $cfg := .Values.agents }}
+{{- if $cfg.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: macts-agent-{{ $name | kebabcase }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: macts
+    app.kubernetes.io/component: {{ $name | kebabcase }}
+    app.kubernetes.io/version: {{ $.Values.global.imageTag | quote }}
+spec:
+  replicas: {{ $cfg.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: macts
+      app.kubernetes.io/component: {{ $name | kebabcase }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: macts
+        app.kubernetes.io/component: {{ $name | kebabcase }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      {{- with $cfg.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with $cfg.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: "{{ $.Values.global.imageRegistry }}/macts:{{ $.Values.global.imageTag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          env:
+            - name: AGENT_NAME
+              value: {{ $name | snakecase | quote }}
+            - name: MACTS_MODE
+              value: {{ $.Values.global.mode | quote }}
+            - name: MACTS_ENV
+              value: {{ $.Values.global.environment | quote }}
+          envFrom:
+            - secretRef:
+                name: macts-app-secrets
+          {{- with $cfg.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          ports:
+            - name: metrics
+              containerPort: 8000
+---
+{{- end }}
+{{- end }}

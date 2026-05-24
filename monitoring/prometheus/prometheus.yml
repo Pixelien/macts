@@ -1,0 +1,52 @@
+# =============================================================================
+# Prometheus konfigürasyonu — MACTS metriklerini scrape eder
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "macts"
+
+# Alert rules dosyaları
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+scrape_configs:
+  # Prometheus'un kendisi
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Tüm MACTS agent'ları (her biri kendi /metrics endpoint'inde expose eder)
+  - job_name: "macts-agents"
+    static_configs:
+      - targets:
+          - "agent-market-scanner:8000"
+          - "agent-data-collection:8000"
+          - "agent-feature-engineering:8000"
+          - "agent-per-coin-learning:8000"
+          - "agent-risk-management:8000"
+          - "agent-signal-generation:8000"
+          - "agent-execution:8000"
+          - "agent-simulation:8000"
+          - "agent-portfolio-manager:8000"
+          - "agent-monitoring:8000"
+          - "agent-model-registry:8000"
+          - "agent-circuit-breaker:8000"
+    metrics_path: /metrics
+
+  # Redis exporter (TODO: redis_exporter sidecar ekle)
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+
+  # Kafka JMX exporter (TODO)
+  # - job_name: "kafka"
+  #   static_configs:
+  #     - targets: ["kafka-exporter:9308"]
+
+  # Postgres exporter (TODO)
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]

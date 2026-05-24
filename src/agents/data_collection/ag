@@ -1,0 +1,162 @@
+"""Data Collection Agent.
+
+Sorumluluklar:
+- Universe'deki her sembol için Binance Futures WebSocket stream'lerine
+  bağlanmak (combined stream multiplexing)
+- 5 farklı stream tipini paralel dinlemek: kline, trade, depth, markPrice,
+  fundingRate (openInterest REST polling ile)
+- Bağlantı kopması durumunda otomatik reconnect ve gap-filling yapmak
+- Gelen tick verilerini Pydantic modellere dönüştürüp Redis Streams'e
+  yazmak (düşük gecikme)
+- Aynı veriyi InfluxDB'ye batch olarak yazmak (kalıcı arşiv)
+- Tarihsel veri backfill yapmak (REST API ile)
+
+GAZIFINTECH-STYLE REAL-TIME: Polling YOK. Tüm veriler WebSocket
+streaming üzerinden gelir. REST yalnızca:
+- İlk başlatmada tarihsel backfill için
+- WebSocket'te bulunmayan openInterest için periyodik olarak
+
+Yayınladığı Stream'ler:
+- stream:ticks.{symbol}.kline.{interval}
+- stream:ticks.{symbol}.trade
+- stream:ticks.{symbol}.depth
+- stream:ticks.{symbol}.markprice
+
+Tüketim:
+- stream:universe.update -> Yeni sembol eklendiğinde stream başlat,
+                            silindiğinde durdur.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from src.agents.base import BaseAgent, run_agent
+
+
+class DataCollectionAgent(BaseAgent):
+    """WebSocket tabanlı gerçek zamanlı veri toplama agent'ı."""
+
+    agent_name = "data_collection"
+    heartbeat_interval = 5.0
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._active_symbols: set[str] = set()
+        self._ws_connections: dict[int, Any] = {}   # connection_id -> ws_client
+        self._symbol_to_connection: dict[str, int] = {}
+        self._max_streams_per_conn = self.config.exchange.rate_limits.get(
+            "ws_max_streams_per_connection", 200
+        )
+        self._max_connections = self.config.exchange.rate_limits.get(
+            "ws_max_connections", 10
+        )
+
+    async def _initialize(self) -> None:
+        """Backfill ve mevcut universe'e abone ol."""
+        self.logger.info("data_collection_initializing")
+        # TODO: Mevcut universe'ü al (Redis'ten son snapshot)
+        # TODO: Her sembol için tarihsel backfill çalıştır (paralel, throttled)
+        # TODO: WebSocket pool'u oluştur ve stream'leri ata
+
+    async def _run(self) -> None:
+        """Universe değişikliklerini dinle ve WebSocket'leri yönet."""
+        self.logger.info("data_collection_loop_started")
+
+        # Universe update stream'ini dinle
+        update_task = asyncio.create_task(self._listen_universe_updates())
+
+        # OpenInterest REST poller'ı başlat (WebSocket'te yok)
+        oi_task = asyncio.create_task(self._poll_open_interest())
+
+        try:
+            await self._stop_event.wait()
+        finally:
+            update_task.cancel()
+            oi_task.cancel()
+            await asyncio.gather(update_task, oi_task, return_exceptions=True)
+
+    async def _listen_universe_updates(self) -> None:
+        """Market Scanner'dan gelen universe değişikliklerini işle.
+
+        TODO:
+        1. self.redis.subscribe("stream:universe.update", ...)
+        2. event_type == "added" ise _add_symbol_streams(symbol)
+        3. event_type == "removed" ise _remove_symbol_streams(symbol)
+        """
+        async for msg in self.redis.subscribe(
+            "stream:universe.update",
+            group="data-collection",
+            consumer=self.agent_name,
+        ):
+            self.logger.info("universe_update_received", msg=msg)
+            # TODO: handle add/remove
+
+    async def _add_symbol_streams(self, symbol: str) -> None:
+        """Yeni sembol için tüm stream'leri başlat.
+
+        TODO:
+        1. _select_or_create_connection() ile uygun WS connection bul
+        2. Connection'a kline/trade/depth/markPrice stream'lerini SUBSCRIBE et
+        3. Mapping güncelle
+        """
+
+    async def _remove_symbol_streams(self, symbol: str) -> None:
+        """Sembol için tüm stream'leri durdur."""
+
+    async def _ws_message_handler(self, raw_msg: dict[str, Any]) -> None:
+        """Gelen WebSocket mesajını işle.
+
+        TODO:
+        1. Stream tipini parse et (msg["stream"])
+        2. Pydantic model'e dönüştür (Kline, Trade, OrderBookSnapshot, vb.)
+        3. Redis Streams'e yayınla (düşük gecikme yolu)
+        4. InfluxDB batcher'a ekle (kalıcı arşiv)
+        """
+
+    async def _poll_open_interest(self) -> None:
+        """OpenInterest verisini REST'ten periyodik olarak çek.
+
+        Binance WebSocket'te OI streaming yok, REST polling gerekli.
+        """
+        interval = self.config.data_collection.streams.get("open_interest", {}).get(
+            "poll_interval_seconds", 60
+        )
+        while not self._stop_event.is_set():
+            try:
+                # TODO: Her sembol için /fapi/v1/openInterest endpoint'ine paralel istek
+                # TODO: OpenInterest model'ine çevir ve yayınla
+                pass
+            except Exception as e:
+                self.logger.exception("oi_polling_failed", error=str(e))
+
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                continue
+
+    async def _backfill_historical(self, symbol: str, intervals: list[str]) -> None:
+        """Tarihsel kline verilerini REST ile çek ve InfluxDB'ye yaz.
+
+        TODO:
+        1. config.data_collection.backfill.days kadar geçmişe git
+        2. Her interval için /fapi/v1/klines endpoint'ini chunk'lar halinde çağır
+        3. Rate limit'e uy (1500 ms her 1000 mum için yeterli)
+        4. InfluxDB'ye batch yaz
+        """
+
+    async def _shutdown(self) -> None:
+        """Tüm WS bağlantılarını kapat."""
+        self.logger.info("closing_all_websocket_connections")
+        # TODO: ws_connections'ı kapat
+
+    async def _health_check(self) -> dict[str, float]:
+        return {
+            "active_symbols": float(len(self._active_symbols)),
+            "active_ws_connections": float(len(self._ws_connections)),
+        }
+
+
+if __name__ == "__main__":
+    asyncio.run(run_agent(DataCollectionAgent))

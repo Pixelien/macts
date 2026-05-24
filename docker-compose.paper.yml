@@ -1,0 +1,61 @@
+# =============================================================================
+# Paper Trading Mode Overlay
+# Kullanım: docker compose -f docker-compose.yml -f docker-compose.paper.yml up -d
+# =============================================================================
+# - Mainnet WebSocket akışını dinler (gerçek veri)
+# - Execution Agent yerine Simulation Agent emirleri sahte fill eder
+# - 30+ gün çalışmalı (promotion criteria için)
+# =============================================================================
+
+services:
+  agent-market-scanner:
+    environment:
+      MACTS_MODE: paper
+
+  agent-data-collection:
+    environment:
+      MACTS_MODE: paper
+
+  agent-feature-engineering:
+    environment:
+      MACTS_MODE: paper
+
+  agent-per-coin-learning:
+    environment:
+      MACTS_MODE: paper
+
+  agent-risk-management:
+    environment:
+      MACTS_MODE: paper
+
+  agent-signal-generation:
+    environment:
+      MACTS_MODE: paper
+
+  # Paper modda Execution pasif, simulation aktif
+  agent-execution:
+    profiles:
+      - disabled
+
+  agent-simulation:
+    environment:
+      MACTS_MODE: paper
+
+  agent-portfolio-manager:
+    environment:
+      MACTS_MODE: paper
+
+  agent-monitoring:
+    environment:
+      MACTS_MODE: paper
+
+  agent-model-registry:
+    environment:
+      MACTS_MODE: paper
+
+  agent-circuit-breaker:
+    environment:
+      MACTS_MODE: paper
+  agent-grid-bot:
+    environment:
+      MACTS_MODE: paper

@@ -1,0 +1,58 @@
+# =============================================================================
+# Testnet Mode Overlay
+# Kullanım: docker compose -f docker-compose.yml -f docker-compose.testnet.yml up -d
+# =============================================================================
+# - Tüm agent'lar testnet endpoint'lerine bağlanır
+# - Simulation agent devre dışı (gerçek testnet emirler kullanılır)
+# - Düşük risk: testnet sahte para
+# =============================================================================
+
+services:
+  agent-market-scanner:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-data-collection:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-feature-engineering:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-per-coin-learning:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-risk-management:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-signal-generation:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-execution:
+    environment:
+      MACTS_MODE: testnet
+
+  # Testnet'te simulation pasif
+  agent-simulation:
+    profiles:
+      - disabled
+
+  agent-portfolio-manager:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-monitoring:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-model-registry:
+    environment:
+      MACTS_MODE: testnet
+
+  agent-circuit-breaker:
+    environment:
+      MACTS_MODE: testnet

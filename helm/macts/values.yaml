@@ -1,0 +1,151 @@
+# =============================================================================
+# MACTS Helm Chart - Default Values
+# =============================================================================
+# Bu dosya production-grade Kubernetes deployment için temel değerleri
+# içerir. Üretim ortamlarına özel değerler için override values.yaml
+# kullanın (helm install ... -f values.production.yaml).
+# =============================================================================
+
+global:
+  mode: testnet                     # testnet | paper | live
+  environment: production
+  imageRegistry: local
+  imageTag: "0.1.0-alpha"
+  imagePullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Agent'lar
+# -----------------------------------------------------------------------------
+agents:
+  marketScanner:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+
+  dataCollection:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits:   { cpu: 2000m, memory: 4Gi }
+
+  featureEngineering:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits:   { cpu: 2000m, memory: 4Gi }
+
+  perCoinLearning:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 1000m, memory: 4Gi }
+      limits:   { cpu: 4000m, memory: 8Gi }
+    nodeSelector:
+      ml-workload: "true"
+
+  riskManagement:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 1000m, memory: 1Gi }
+
+  signalGeneration:
+    enabled: true
+    replicas: 1
+
+  execution:
+    enabled: true
+    replicas: 1
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 1000m, memory: 1Gi }
+
+  simulation:
+    enabled: true
+    replicas: 1
+
+  portfolioManager:
+    enabled: true
+    replicas: 1
+
+  monitoring:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8000
+
+  backtesting:
+    enabled: false                  # On-demand, default'ta kapalı
+
+  modelRegistry:
+    enabled: true
+    replicas: 1
+
+  circuitBreaker:
+    enabled: true
+    replicas: 2                     # KRİTİK - HA için 2 replica
+    priorityClassName: system-critical
+
+# -----------------------------------------------------------------------------
+# Bağımlılıklar (production'da managed servisler tercih edilebilir)
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: macts-redis-secret
+
+kafka:
+  enabled: true
+  replicaCount: 3                   # Production'da 3 broker
+  zookeeper:
+    replicaCount: 3
+
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      size: 50Gi
+  auth:
+    existingSecret: macts-postgres-secret
+
+influxdb:
+  enabled: true
+  persistence:
+    size: 200Gi
+
+minio:
+  enabled: true
+  mode: distributed
+  replicas: 4
+  persistence:
+    size: 100Gi
+
+# -----------------------------------------------------------------------------
+# Observability
+# -----------------------------------------------------------------------------
+prometheus:
+  enabled: true
+  retention: 30d
+
+grafana:
+  enabled: true
+  adminPassword: "" # existingSecret kullan
+
+# -----------------------------------------------------------------------------
+# Secrets (mutlaka external secret manager kullan)
+# -----------------------------------------------------------------------------
+secrets:
+  # Production'da AWS Secrets Manager / GCP Secret Manager / Vault önerilir
+  externalSecretsEnabled: false
+  binance:
+    existingSecret: macts-binance-secret
+  notifications:
+    existingSecret: macts-notif-secret

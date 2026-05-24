@@ -1,0 +1,4 @@
+FROM ghcr.io/mlflow/mlflow:v3.0.0
+
+# MLflow'un Postgres backend'ine bağlanabilmesi için psycopg2 ve boto3 (S3/MinIO için)
+RUN pip install --no-cache-dir psycopg2-binary boto3

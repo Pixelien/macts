@@ -1,0 +1,16 @@
+apiVersion: v2
+name: macts
+description: Personal Multi-Agent Crypto Trading System
+type: application
+version: 0.1.0
+appVersion: "0.1.0-alpha"
+home: ""
+maintainers:
+  - name: macts
+
+keywords:
+  - crypto
+  - trading
+  - multi-agent
+  - ml
+  - binance

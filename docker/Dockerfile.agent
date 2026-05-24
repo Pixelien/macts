@@ -1,0 +1,87 @@
+# syntax=docker/dockerfile:1.6
+# =============================================================================
+# MACTS Agent Dockerfile
+# Multi-stage build: builder (deps) + runtime (slim)
+# =============================================================================
+
+# ----- STAGE 1: Builder -----
+FROM python:3.11-slim-bookworm AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Sistem bağımlılıkları (TA-Lib derlemek için gerekli)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        curl \
+        ca-certificates \
+        gcc \
+        g++ \
+        make \
+    && rm -rf /var/lib/apt/lists/*
+
+# TA-Lib C kütüphanesini kur (Python ta-lib paketi için gerekli)
+RUN cd /tmp && \
+    wget --quiet https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz && \
+    tar -xzf ta-lib-0.6.4-src.tar.gz && \
+    cd ta-lib-0.6.4 && \
+    ./configure --prefix=/usr && \
+    make -j1 && \
+    make install && \
+    cd / && rm -rf /tmp/ta-lib*
+# Python bağımlılıklarını kur
+WORKDIR /build
+COPY pyproject.toml ./
+RUN pip install --upgrade pip wheel setuptools && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip wheel --wheel-dir /wheels --no-deps torch && \
+    pip wheel --wheel-dir /wheels -e .
+# ----- STAGE 2: Runtime -----
+FROM python:3.11-slim-bookworm AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# TA-Lib runtime kütüphanesini kopyala (header'a gerek yok)
+COPY --from=builder /usr/lib/libta_lib.so* /usr/lib/
+
+# Minimum runtime paketleri
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python wheel'leri kopyala ve kur
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache /wheels/*.whl && rm -rf /wheels
+
+# Non-root user
+RUN useradd --create-home --uid 1000 macts
+
+WORKDIR /app
+
+# Uygulama kodu
+COPY --chown=macts:macts src ./src
+COPY --chown=macts:macts config ./config
+COPY --chown=macts:macts pyproject.toml ./
+
+# Veri ve log klasörleri
+RUN mkdir -p /app/data /app/logs && \
+    chown -R macts:macts /app/data /app/logs
+
+USER macts
+
+# Healthcheck (Prometheus metrik portu üzerinden)
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+#     CMD curl -fsS http://localhost:8000/health || exit 1
+
+# tini ile signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Default: agent run komutunu bekler, AGENT_NAME env'i ile çalışır
+CMD ["sh", "-c", "python -m src.cli agent run ${AGENT_NAME:-market_scanner}"]

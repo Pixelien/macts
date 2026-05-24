@@ -1,0 +1,374 @@
+# =============================================================================
+# MACTS - Ana Konfigürasyon Dosyası
+# =============================================================================
+# Bu dosyayı config.yaml olarak kopyalayın ve gerekli değişiklikleri yapın.
+# Hassas değerler (.env) environment variable olarak yüklenir.
+# =============================================================================
+
+system:
+  name: "MACTS"
+  version: "0.1.0-alpha"
+  mode: "${MACTS_MODE}"          # testnet | paper | live
+  environment: "${MACTS_ENV}"     # development | staging | production
+  log_level: "${LOG_LEVEL}"
+
+# -----------------------------------------------------------------------------
+# Borsa Konfigürasyonu
+# -----------------------------------------------------------------------------
+exchange:
+  name: "binance_futures"
+  testnet:
+    rest_url: "https://testnet.binancefuture.com"
+    ws_url: "wss://stream.binancefuture.com"
+  mainnet:
+    rest_url: "https://fapi.binance.com"
+    ws_url: "wss://fstream.binance.com"
+
+  # Rate limit ayarları
+  rate_limits:
+    rest_orders_per_10s: 50
+    rest_orders_per_minute: 300
+    ws_max_streams_per_connection: 200
+    ws_max_connections: 10
+
+  # Bağlantı ayarları
+  connection:
+    timeout_seconds: 30
+    max_retries: 5
+    retry_backoff_initial_ms: 100
+    retry_backoff_max_ms: 30000
+    websocket_ping_interval_seconds: 30
+    websocket_pong_timeout_seconds: 10
+    websocket_reconnect_delay_seconds: 5
+
+# -----------------------------------------------------------------------------
+# Trade Universe (İşlem Evreni)
+# -----------------------------------------------------------------------------
+universe:
+  quote_asset: "USDT"
+  contract_type: "PERPETUAL"
+
+  # Filtreler
+  filters:
+    min_24h_volume_usdt: 50000000      # 50M USDT günlük hacim
+    min_open_interest_usdt: 10000000   # 10M USDT açık pozisyon
+    max_spread_bps: 5                   # 0.05% max bid-ask spread
+    min_age_days: 30                    # Listelendikten en az 30 gün geçmiş olmalı
+    blacklist:                          # Manuel olarak hariç tutulan coinler
+      - "USDCUSDT"
+      - "BUSDUSDT"
+
+  # Universe yenileme sıklığı
+  refresh_interval_seconds: 300
+
+# -----------------------------------------------------------------------------
+# Veri Toplama
+# -----------------------------------------------------------------------------
+data_collection:
+  streams:
+    kline:
+      enabled: true
+      intervals: ["1m", "5m", "15m", "1h", "4h"]
+    trade:
+      enabled: true
+    depth:
+      enabled: true
+      level: 20      # L2 order book derinliği
+      update_speed_ms: 100
+    mark_price:
+      enabled: true
+    funding_rate:
+      enabled: true
+    open_interest:
+      enabled: true
+      poll_interval_seconds: 60   # OI WebSocket'te yok, REST polling
+
+  # Tarihsel veri backfill
+  backfill:
+    enabled: true
+    days: 730   # 2 yıl
+    intervals: ["1m", "5m", "15m", "1h", "4h"]
+
+  # Buffer ayarları
+  buffer:
+    max_kline_history: 5000   # Bellekte tutulacak maksimum mum sayısı
+    flush_interval_seconds: 5
+
+# -----------------------------------------------------------------------------
+# Feature Engineering
+# -----------------------------------------------------------------------------
+feature_engineering:
+  technical_indicators:
+    rsi:
+      enabled: true
+      periods: [14, 21]
+    macd:
+      enabled: true
+      fast: 12
+      slow: 26
+      signal: 9
+    bollinger_bands:
+      enabled: true
+      period: 20
+      std_dev: 2
+    ema:
+      enabled: true
+      periods: [9, 21, 50, 200]
+    sma:
+      enabled: true
+      periods: [20, 50, 200]
+    atr:
+      enabled: true
+      period: 14
+    vwap:
+      enabled: true
+    ichimoku:
+      enabled: true
+    obv:
+      enabled: true
+    cci:
+      enabled: true
+      period: 20
+    stoch_rsi:
+      enabled: true
+      period: 14
+
+  microstructure:
+    bid_ask_imbalance: true
+    order_book_pressure: true
+    trade_flow_imbalance: true
+    realized_volatility:
+      enabled: true
+      windows: [5, 15, 60]   # dakika cinsinden
+
+  regime_detection:
+    enabled: true
+    method: "hmm"   # hmm | gmm | rule_based
+    n_states: 3     # bull | bear | sideways
+
+# -----------------------------------------------------------------------------
+# Per-Coin Learning Agent
+# -----------------------------------------------------------------------------
+per_coin_learning:
+  forecasting_model:
+    type: "tft"   # tft | nbeats | lstm
+    encoder_length: 60
+    prediction_horizon: 5
+    hidden_size: 64
+    attention_head_size: 4
+    dropout: 0.2
+    learning_rate: 0.001
+    batch_size: 64
+    max_epochs: 50
+    early_stopping_patience: 5
+
+  rl_agent:
+    algorithm: "ppo"   # ppo | sac
+    policy: "MlpPolicy"
+    learning_rate: 0.0003
+    n_steps: 2048
+    batch_size: 64
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    total_timesteps: 1000000
+
+  retraining:
+    schedule_cron: "0 2 * * *"   # Her gece 02:00
+    min_new_samples: 1000
+    walk_forward_window_days: 90
+
+# -----------------------------------------------------------------------------
+# Risk Management
+# -----------------------------------------------------------------------------
+risk_management:
+  position_sizing:
+    method: "fractional_kelly"
+    kelly_fraction: 0.5      # Half-Kelly
+    max_position_pct: 0.01   # %1 of total capital
+
+  loss_limits:
+    daily_pct: 0.03
+    weekly_pct: 0.07
+    monthly_pct: 0.12
+    cooldown_hours_on_breach: 24
+
+  leverage:
+    low_volatility_max: 5
+    high_volatility_max: 2
+    volatility_threshold_atr_pct: 0.03
+
+  correlation:
+    max_correlation_threshold: 0.7
+    correlation_window_days: 30
+    recompute_interval_minutes: 60
+
+  var_cvar:
+    enabled: true
+    confidence_level: 0.95
+    historical_window_days: 90
+
+  flash_crash:
+    enabled: true
+    move_threshold_pct: 0.03
+    window_seconds: 5
+    action: "close_all"   # close_all | reduce_50 | hedge
+
+# -----------------------------------------------------------------------------
+# Signal Generation
+# -----------------------------------------------------------------------------
+signal_generation:
+  ensemble:
+    method: "stacking"   # voting | stacking | weighted
+    meta_learner: "logistic_regression"
+
+  confidence_threshold: 0.65
+  min_expected_rr_ratio: 1.5
+
+  signals:
+    ml_weight: 0.5
+    technical_weight: 0.3
+    microstructure_weight: 0.2
+
+# -----------------------------------------------------------------------------
+# Execution
+# -----------------------------------------------------------------------------
+execution:
+  default_order_type: "limit"
+  algorithms:
+    twap:
+      enabled: true
+      slice_count: 5
+      interval_seconds: 30
+    vwap:
+      enabled: true
+    iceberg:
+      enabled: true
+      visible_pct: 0.1
+
+  slippage:
+    max_acceptable_bps: 10   # 0.10%
+
+  retry:
+    max_attempts: 3
+    backoff_seconds: 1
+
+# -----------------------------------------------------------------------------
+# Simulation (Paper Trading)
+# -----------------------------------------------------------------------------
+simulation:
+  initial_capital_usdt: 10000
+  fee_bps: 4   # 0.04% Binance Futures taker fee
+  slippage_model: "linear"   # linear | impact | none
+  slippage_bps: 2
+
+  promotion_criteria:
+    min_days: 30
+    min_sharpe: 1.5
+    max_drawdown: 0.15
+    min_win_rate: 0.52
+    min_profit_factor: 1.4
+    forward_to_backtest_sharpe_ratio: 0.7
+
+# -----------------------------------------------------------------------------
+# Portfolio Manager
+# -----------------------------------------------------------------------------
+portfolio_manager:
+  rebalance_interval_minutes: 60
+  hedge:
+    enabled: false   # MVP'de kapalı
+    method: "delta_neutral"
+
+# -----------------------------------------------------------------------------
+# Monitoring & Alerting
+# -----------------------------------------------------------------------------
+monitoring:
+  health_check_interval_seconds: 30
+  metrics_export_interval_seconds: 15
+
+  anomaly_detection:
+    enabled: true
+    method: "isolation_forest"
+    contamination: 0.05
+
+  alerts:
+    channels: ["telegram", "log"]   # telegram | email | slack | log
+    severity_levels:
+      - critical   # Sistem durduruldu
+      - error      # Agent çöktü
+      - warning    # Performans degradasyonu
+      - info       # Genel bilgilendirme
+
+# -----------------------------------------------------------------------------
+# Backtesting
+# -----------------------------------------------------------------------------
+backtesting:
+  walk_forward:
+    train_window_days: 180
+    test_window_days: 30
+    step_days: 30
+
+  optuna:
+    n_trials: 100
+    timeout_seconds: 7200
+    n_jobs: 4
+
+# -----------------------------------------------------------------------------
+# Model Registry (MLflow)
+# -----------------------------------------------------------------------------
+model_registry:
+  experiment_name: "macts-per-coin-models"
+  staging_threshold:
+    min_validation_sharpe: 1.2
+  production_threshold:
+    min_paper_sharpe: 1.5
+    min_paper_days: 30
+  canary_traffic_pct: 0.1
+
+# -----------------------------------------------------------------------------
+# Circuit Breaker
+# -----------------------------------------------------------------------------
+circuit_breaker:
+  triggers:
+    flash_crash:
+      enabled: true
+    exchange_outage:
+      enabled: true
+      consecutive_failed_requests: 10
+    abnormal_spread:
+      enabled: true
+      threshold_bps: 50
+    daily_loss_breach:
+      enabled: true
+    correlation_spike:
+      enabled: true
+      threshold: 0.95
+
+  actions:
+    on_trigger: "close_all_and_halt"
+    auto_resume: false
+    notification_required: true
+
+# -----------------------------------------------------------------------------
+# Messaging (Redis Streams + Kafka hibrit)
+# -----------------------------------------------------------------------------
+messaging:
+  redis_streams:
+    # Düşük gecikmeli, yüksek frekanslı mesajlar için
+    streams:
+      tick_data: "stream:ticks"
+      features: "stream:features"
+      signals: "stream:signals"
+    max_length: 100000
+    consumer_block_ms: 100
+
+  kafka:
+    # Yüksek hacimli, kalıcı mesajlar için
+    topics:
+      market_data: "macts.market.data"
+      trade_events: "macts.trade.events"
+      audit_log: "macts.audit.log"
+    partitions: 6
+    replication_factor: 1   # Production'da 3 olmalı
+    retention_hours: 168    # 7 gün

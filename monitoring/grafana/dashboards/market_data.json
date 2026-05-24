@@ -1,0 +1,805 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"BTCUSDT\" and r._field == \"close\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "BTC/USDT",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"ETHUSDT\" and r._field == \"close\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "ETH/USDT",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"SOLUSDT\" and r._field == \"close\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "SOL/USDT",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "unit": "currencyUSD"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"BTCUSDT\" and r._field == \"close\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"BTC\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"ETHUSDT\" and r._field == \"close\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"ETH\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"SOLUSDT\" and r._field == \"close\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"SOL\")",
+          "refId": "C"
+        }
+      ],
+      "title": "Fiyat Hareketi (BTC/ETH/SOL)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Trades/min",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"BTCUSDT\" and r._field == \"trades\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> yield(name: \"BTC trades/min\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"ETHUSDT\" and r._field == \"trades\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> yield(name: \"ETH trades/min\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"klines\" and r.symbol == \"SOLUSDT\" and r._field == \"trades\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> yield(name: \"SOL trades/min\")",
+          "refId": "C"
+        }
+      ],
+      "title": "Dakikal\u0131k \u0130\u015flem Say\u0131s\u0131 (Trade Count)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "description": "Son hesaplanan RSI(14) de\u011ferleri. <30 oversold (ye\u015fil), 30-70 normal (sar\u0131), >70 overbought (k\u0131rm\u0131z\u0131).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "short",
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "id": 6,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"features\" and r._field == \"rsi_14\")\n  |> last()\n  |> group()\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"symbol\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_start\", \"_stop\", \"_field\", \"_measurement\", \"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "RSI(14) \u2014 20 Coin (s\u0131ral\u0131)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "description": "MACD histogram. Pozitif (ye\u015fil) bullish momentum, negatif (k\u0131rm\u0131z\u0131) bearish.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "MACD Histogram",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            },
+            "barAlignment": 0
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"features\" and r.symbol == \"BTCUSDT\" and r._field == \"macd_hist\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"BTC MACD hist\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"features\" and r.symbol == \"ETHUSDT\" and r._field == \"macd_hist\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"ETH MACD hist\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"features\" and r.symbol == \"SOLUSDT\" and r._field == \"macd_hist\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"SOL MACD hist\")",
+          "refId": "C"
+        }
+      ],
+      "title": "MACD Histogram (BTC/ETH/SOL) \u2014 Momentum",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "description": "Live ML prediction (prob_up). >0.5 yukar\u0131, <0.5 a\u015fa\u011f\u0131 tahmin. Renk: k\u0131rm\u0131z\u0131 d\u00fc\u015f\u00fc\u015f, ye\u015fil y\u00fckseli\u015f.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "yellow",
+                "value": 0.45
+              },
+              {
+                "color": "light-green",
+                "value": 0.55
+              },
+              {
+                "color": "green",
+                "value": 0.7
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 3
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 8,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"predictions\" and r._field == \"prob_up\")\n  |> last()\n  |> group()\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"symbol\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_start\", \"_stop\", \"_field\", \"_measurement\", \"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "\ud83e\udd16 ML Tahmini: prob_up (yukar\u0131 \u00e7\u0131kma olas\u0131l\u0131\u011f\u0131)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "description": "BTC/ETH/SOL i\u00e7in ML tahmin ge\u00e7mi\u015fi. 0.5 n\u00f6tr \u00e7izgi.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "prob_up",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predictions\" and r.symbol == \"BTCUSDT\" and r._field == \"prob_up\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"BTC prob_up\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predictions\" and r.symbol == \"ETHUSDT\" and r._field == \"prob_up\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"ETH prob_up\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predictions\" and r.symbol == \"SOLUSDT\" and r._field == \"prob_up\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"SOL prob_up\")",
+          "refId": "C"
+        }
+      ],
+      "title": "\ud83e\udd16 Tahmin Ge\u00e7mi\u015fi (BTC/ETH/SOL) \u2014 prob_up zaman serisi",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "description": "Son \u00fcretilen trading sinyalleri (LONG/SHORT, confidence, position size).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "confidence"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "direction"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "LONG": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "SHORT": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"macts_market_data\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"signals\")\n  |> filter(fn: (r) => r._field == \"confidence\" or r._field == \"prob_up\" or r._field == \"position_size_pct\")\n  |> pivot(rowKey:[\"_time\",\"symbol\",\"direction\"], columnKey:[\"_field\"], valueColumn:\"_value\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 50)",
+          "refId": "A"
+        }
+      ],
+      "title": "\ud83c\udfaf Son \u00dcretilen Trading Sinyalleri (30 dk)",
+      "type": "table",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "_start": true,
+              "_stop": true,
+              "_measurement": true,
+              "result": true,
+              "table": true
+            },
+            "indexByName": {
+              "_time": 0,
+              "symbol": 1,
+              "direction": 2,
+              "confidence": 3,
+              "prob_up": 4,
+              "position_size_pct": 5
+            },
+            "renameByName": {
+              "_time": "Zaman",
+              "symbol": "Sembol",
+              "direction": "Y\u00f6n",
+              "confidence": "Confidence",
+              "prob_up": "prob_up",
+              "position_size_pct": "Pozisyon %"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": [
+    "macts",
+    "market-data",
+    "features"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "Europe/Istanbul",
+  "title": "MACTS \u2014 Canl\u0131 Market Verisi",
+  "uid": "macts-market-data",
+  "version": 6,
+  "weekStart": ""
+}
