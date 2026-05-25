@@ -48,7 +48,7 @@ INITIAL_CAPITAL_USDT = 1000.0       # Her sembol için ayrı paper wallet
 N_GRIDS = 12                         # 12 grid çizgisi
 RANGE_LOOKBACK_HOURS = 48            # Range belirleme: son 48 saat
 GRID_REBALANCE_HOURS = 12            # 12 saatte bir range'i güncelle
-ORDER_SIZE_USDT = 25.0               # Her tetiklemede $25 emir
+ORDER_SIZE_USDT = 100.0              # Her tetiklemede $100 emir (v2: edge testi)
 FEE_RATE = 0.0004                    # Binance futures taker fee 0.04%
 
 # ML Regime Detection parametreleri
