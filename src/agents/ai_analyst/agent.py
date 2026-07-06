@@ -45,6 +45,25 @@ from prometheus_client import Counter, Gauge
 
 from src.agents.ai_analyst.scheduler import StaggeredScheduler
 from src.agents.base import BaseAgent, run_agent
+from src.core.database.postgres_repo import PostgresRepository
+from src.core.database.redis_cache import RedisCache
+from src.core.llm import (
+    AllModelsFailedError,
+    AnalysisCache,
+    FallbackChain,
+    LLMModelConfig,
+    NIMQuotaError,
+    NIMRateLimitError,
+    NvidiaNIMClient,
+    TokenBucketLimiter,
+    UsageTracker,
+    build_cache_key,
+    build_messages,
+    extract_json,
+    load_llm_config,
+    load_prompt,
+)
+from src.models.schemas import AIAnalysis
 
 # Stream isimleri (feature_engineering konvansiyonuyla aynı)
 STREAM_UNIVERSE_SNAPSHOT = "stream:universe.snapshot"
@@ -104,6 +123,15 @@ class AIAnalystAgent(BaseAgent):
         self._scheduler: StaggeredScheduler | None = None
         self._latest_features: dict[str, dict[str, Any]] = {}
         self._feature_listeners: dict[str, asyncio.Task[None]] = {}
+        # LLM katmanı (yalnızca flag açıkken kurulur)
+        self._llm_config = None
+        self._llm_client: NvidiaNIMClient | None = None
+        self._chain: FallbackChain | None = None
+        self._limiter: TokenBucketLimiter | None = None
+        self._analysis_cache: AnalysisCache | None = None
+        self._usage: UsageTracker | None = None
+        self._prompt = None
+        self._llm_ready = False
 
     # =========================================================================
     # Lifecycle
@@ -129,6 +157,77 @@ class AIAnalystAgent(BaseAgent):
                 "ai_analyst_disabled",
                 hint="Aktive etmek için ENABLE_AI_ANALYST=true (env) ayarlayın",
             )
+            return
+
+        await self._setup_llm_stack()
+
+    async def _setup_llm_stack(self) -> None:
+        """LLM istemci katmanını kur (config, client, limiter, cache, tracker)."""
+        self._llm_config = load_llm_config()
+        api_key = self._llm_config.api_key
+        if not api_key:
+            # Anahtar yoksa çökmek yerine devre dışı kal — sistem Faz 2
+            # davranışıyla devam eder, operatör loglardan durumu görür.
+            self.logger.error(
+                "nvidia_api_key_missing",
+                hint=".env dosyasına NVIDIA_API_KEY ekleyin",
+            )
+            self._llm_ready = False
+            return
+
+        self._llm_client = NvidiaNIMClient(
+            api_key=api_key,
+            base_url=self._llm_config.base_url,
+            timeout_seconds=self._llm_config.request_timeout_seconds,
+        )
+        self._chain = FallbackChain(
+            [self._llm_config.primary, self._llm_config.fallback]
+        )
+        self._limiter = TokenBucketLimiter(
+            requests_per_minute=self._llm_config.rate_limit.requests_per_minute,
+            requests_per_day=self._llm_config.rate_limit.requests_per_day,
+        )
+        self._prompt = load_prompt(self._llm_config.prompt_version)
+
+        # Redis cache (best-effort — bağlanamazsa cache'siz devam)
+        try:
+            rc = RedisCache(
+                host=os.environ.get("REDIS_HOST", "redis"),
+                port=int(os.environ.get("REDIS_PORT", "6379")),
+                password=os.environ.get("REDIS_PASSWORD") or None,
+            )
+            await rc.connect()
+            self._analysis_cache = AnalysisCache(
+                rc, ttl_seconds=self._llm_config.cache.ttl_seconds
+            )
+        except Exception as e:
+            self.logger.warning("llm_cache_unavailable", error=str(e))
+            self._analysis_cache = None
+
+        # Usage tracker (best-effort)
+        try:
+            repo = PostgresRepository(
+                host=os.environ.get("POSTGRES_HOST", "postgres"),
+                port=int(os.environ.get("POSTGRES_PORT", "5432")),
+                database=os.environ.get("POSTGRES_DB", "macts"),
+                user=os.environ.get("POSTGRES_USER", "macts_user"),
+                password=os.environ.get("POSTGRES_PASSWORD", ""),
+            )
+            await repo.connect()
+            self._usage = UsageTracker(repo)
+            await self._usage.ensure_table()
+        except Exception as e:
+            self.logger.warning("llm_usage_tracker_unavailable", error=str(e))
+            self._usage = None
+
+        self._llm_ready = True
+        self.logger.info(
+            "llm_stack_ready",
+            primary=self._llm_config.primary.model_id,
+            fallback=self._llm_config.fallback.model_id,
+            rpm_cap=self._llm_config.rate_limit.requests_per_minute,
+            prompt_version=self._llm_config.prompt_version,
+        )
 
     async def _run(self) -> None:
         """Ana iş döngüsü."""
@@ -171,6 +270,8 @@ class AIAnalystAgent(BaseAgent):
             await asyncio.gather(
                 *self._feature_listeners.values(), return_exceptions=True
             )
+        if self._llm_client is not None:
+            await self._llm_client.close()
         self.logger.info("ai_analyst_shutting_down")
 
     async def _health_check(self) -> dict[str, float]:
@@ -257,36 +358,141 @@ class AIAnalystAgent(BaseAgent):
     # =========================================================================
 
     async def _analyze_symbol(self, symbol: str) -> None:
-        """Tek sembol için LLM analizi üret ve yayınla.
+        """Tek sembol için LLM analizi üret ve stream:ai_analysis.{symbol}'e yayınla.
 
-        # TODO(Faz 3 / Paket 2) Implementation roadmap:
-        # 1. src/core/llm/nvidia_client.py üzerinden birincil modele istek
-        #    (nvidia/nemotron-3-super-120b-a12b, max_tokens>=4096, temp=0.2)
-        # 2. rate_limiter (30 RPM token bucket) + backoff + Redis cache
-        # 3. fallback_chain: 5xx -> deepseek-ai/deepseek-v4-pro; 429 -> skip
-        #    (429'da fallback denenmez — kota anahtar bazında global, rapor §2)
-        # 4. Pydantic parse (AIAnalysis) -> stream:ai_analysis.{symbol} publish
-        # 5. usage_tracker: Postgres llm_usage_log kaydı
-        # 6. Circuit breaker: ardışık hata eşiği aşılırsa
-        #    stream:circuit_breaker.events üzerinden merkezi kesinti
+        Akış: cache -> rate limit -> fallback zinciri -> parse/validate ->
+        publish -> usage kaydı. Hiçbir hata sinyal üretimini bloklamaz;
+        başarısız tur sessizce atlanır (metrik + log ile izlenir).
         """
         features = self._latest_features.get(symbol)
         if features is None:
             AI_ANALYSES_TOTAL.labels(
                 symbol=symbol, model_id="none", status="skipped"
             ).inc()
-            self.logger.debug("analysis_skipped_no_features", symbol=symbol)
+            return
+        if not self._llm_ready:
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id="none", status="skipped"
+            ).inc()
             return
 
-        # Paket 1 stub: LLM entegrasyonu henüz bağlı değil. Sahte analiz
-        # YAYINLANMAZ — signal_generation'a asla uydurma veri akmamalı.
+        assert self._llm_config and self._chain and self._limiter and self._prompt
+
+        # 1) Cache kontrolü
+        cache_key = build_cache_key(
+            symbol, features, self._llm_config.prompt_version,
+            self._llm_config.primary.model_id,
+        )
+        if self._analysis_cache is not None:
+            cached = await self._analysis_cache.get(cache_key)
+            if cached is not None:
+                await self._publish_analysis(symbol, cached, cache_hit=True)
+                return
+
+        # 2) Rate limit (non-blocking: kota yoksa tur atlanır, BEKLENMEZ)
+        if not self._limiter.try_acquire():
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id="none", status="rate_limited"
+            ).inc()
+            self.logger.warning(
+                "analysis_skipped_rate_limit",
+                symbol=symbol,
+                retry_in_seconds=round(self._limiter.seconds_until_available(), 1),
+                daily_used=self._limiter.daily_used,
+            )
+            return
+
+        # 3) Fallback zinciriyle çağrı
+        messages = build_messages(self._prompt, features)
+
+        async def call(model: LLMModelConfig):
+            assert self._llm_client is not None
+            return await self._llm_client.chat_completion(
+                model.model_id, messages,
+                max_tokens=model.max_tokens, temperature=model.temperature,
+            )
+
+        try:
+            content, usage, latency, used_model = await self._chain.run(call)
+        except (NIMRateLimitError, NIMQuotaError) as e:
+            # Kota hataları: fallback yok (anahtar bazında global kota).
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id="none", status="quota_error"
+            ).inc()
+            self.logger.warning("analysis_quota_error", symbol=symbol, error=str(e))
+            await self._record_usage(symbol, "quota", None, None, False, str(e))
+            return
+        except AllModelsFailedError as e:
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id="none", status="error"
+            ).inc()
+            self.logger.error("analysis_all_models_failed", symbol=symbol, error=str(e))
+            await self._record_usage(symbol, "chain", None, None, False, str(e))
+            return
+
+        # 4) Parse + şema doğrulama (doğrulanamayan çıktı ASLA yayınlanmaz)
+        try:
+            payload = extract_json(content)
+            payload.setdefault("symbol", symbol)
+            analysis = AIAnalysis(
+                **payload,
+                model_id=used_model.model_id,
+                prompt_version=self._llm_config.prompt_version,
+                latency_seconds=round(latency, 3),
+            )
+        except Exception as e:
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id=used_model.model_id, status="parse_error"
+            ).inc()
+            self.logger.warning(
+                "analysis_parse_failed", symbol=symbol,
+                model=used_model.model_id, error=str(e),
+            )
+            await self._record_usage(
+                symbol, used_model.model_id, usage, latency, False, f"parse: {e}"
+            )
+            return
+
+        # 5) Yayınla + cache'le + kaydet
+        analysis_dict = analysis.model_dump(mode="json")
+        await self._publish_analysis(symbol, analysis_dict, cache_hit=False)
+        if self._analysis_cache is not None:
+            await self._analysis_cache.set(cache_key, analysis_dict)
+        await self._record_usage(
+            symbol, used_model.model_id, usage, latency, True, None
+        )
         AI_ANALYSES_TOTAL.labels(
-            symbol=symbol, model_id="stub", status="skipped"
+            symbol=symbol, model_id=used_model.model_id, status="ok"
         ).inc()
         self.logger.info(
-            "analysis_stub",
-            symbol=symbol,
-            note="LLM istemci katmanı Paket 2'de bağlanacak",
+            "analysis_published", symbol=symbol, model=used_model.model_id,
+            direction=analysis.direction, confidence=analysis.confidence,
+            latency_s=round(latency, 2),
+        )
+
+    async def _publish_analysis(
+        self, symbol: str, analysis: dict[str, Any], *, cache_hit: bool
+    ) -> None:
+        analysis = {**analysis, "cache_hit": cache_hit}
+        await self.redis.publish(ai_analysis_stream(symbol), analysis)
+        if cache_hit:
+            AI_ANALYSES_TOTAL.labels(
+                symbol=symbol, model_id="cache", status="ok"
+            ).inc()
+
+    async def _record_usage(
+        self, symbol: str, model_id: str,
+        usage: dict[str, Any] | None, latency: float | None,
+        success: bool, error: str | None,
+    ) -> None:
+        if self._usage is None:
+            return
+        assert self._llm_config is not None
+        await self._usage.record(
+            symbol=symbol, model_id=model_id,
+            prompt_version=self._llm_config.prompt_version,
+            usage=usage, latency_seconds=latency,
+            success=success, error=error,
         )
 
 

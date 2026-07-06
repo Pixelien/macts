@@ -1,0 +1,24 @@
+# LLM katmanı konfigürasyonu (Faz 3)
+# API anahtarı BURAYA YAZILMAZ — .env'deki NVIDIA_API_KEY kullanılır.
+# Model ID'leri 5 Tem 2026 canlı probe ile doğrulandı (docs/AI_ANALYST_MODEL_SELECTION.md §8)
+
+base_url: https://integrate.api.nvidia.com/v1
+request_timeout_seconds: 90.0
+prompt_version: trading_analysis_v1
+
+primary:
+  model_id: nvidia/nemotron-3-super-120b-a12b
+  max_tokens: 4096        # thinking modelleri için zorunlu taban
+  temperature: 0.2
+
+fallback:
+  model_id: deepseek-ai/deepseek-v4-pro
+  max_tokens: 4096
+  temperature: 0.2
+
+rate_limit:
+  requests_per_minute: 30   # NVIDIA ücretsiz katman ~40 RPM'in %75'i
+  requests_per_day: 2000    # günlük soft cap (rapor §5)
+
+cache:
+  ttl_seconds: 840          # analiz aralığının (900s) hemen altı

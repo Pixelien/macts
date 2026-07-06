@@ -149,7 +149,11 @@
 
 **Aşama 1 / Paket 1 teslim edildi**: `agent-ai-analyst` servisi (feature flag: `ENABLE_AI_ANALYST=false` varsayılan — sistem davranışı DEĞİŞMEDİ).
 - Agent iskeleti, StaggeredScheduler (20 sembol × 15 dk, burst-korumalı, unit testle kanıtlı ≤30 istek/dk), `AIAnalysis` şeması, 25 unit test
-- LLM çağrısı henüz BAĞLI DEĞİL (stub, sahte veri yayınlamaz) — Paket 2'de `src/core/llm/` gelecek
+
+**Aşama 2 / Paket 2 teslim edildi**: `src/core/llm/` istemci katmanı + agent'a tam entegrasyon (39 yeni unit test).
+- `nvidia_client` (typed hatalar: 429/402/404/5xx), `rate_limiter` (30 RPM token bucket + 2000/gün, non-blocking), `fallback_chain` (**429'da fallback YOK** — kota anahtar bazında global; 5xx'te retry+backoff sonrası deepseek-v4-pro), `tracking` (Redis TTL cache + Postgres `llm_usage_log`), `prompts` (semver şablon: `config/prompts/trading_analysis_v1.yaml`, few-shot'lu)
+- Akış: cache → rate limit → zincir → pydantic doğrulama → `stream:ai_analysis.{symbol}` publish → usage kaydı. Doğrulanamayan çıktı asla yayınlanmaz; hiçbir hata sinyal üretimini bloklamaz.
+- Aktivasyon: `.env`'e `NVIDIA_API_KEY` + `ENABLE_AI_ANALYST=true`, sonra imaj rebuild + container restart. Anahtar yoksa agent çökmez, hata loglayıp boşta kalır.
 
 ---
 

@@ -115,8 +115,8 @@
 
 - [x] Aşama 0: Model seçimi + canlı probe (birincil: nemotron-3-super-120b-a12b, yedek: deepseek-v4-pro)
 - [x] Aşama 1 / Paket 1: Agent iskeleti (`src/agents/ai_analyst/`), feature flag (`ENABLE_AI_ANALYST`), StaggeredScheduler (kota-güvenli 15 dk kadans), AIAnalysis şeması, compose girdisi, 25 unit test
-- [ ] Aşama 2 / Paket 2: `src/core/llm/` — nvidia_client, rate_limiter (30 RPM token bucket), backoff, Redis cache, fallback_chain (429≠5xx politikası), usage_tracker (Postgres llm_usage_log)
-- [ ] Aşama 3: Prompt versiyonlama (config/prompts/, semver, MLflow experiment)
+- [x] Aşama 2 / Paket 2: `src/core/llm/` — nvidia_client, rate_limiter (30 RPM token bucket), backoff, Redis cache, fallback_chain (429≠5xx politikası), usage_tracker (Postgres llm_usage_log), agent'a tam entegrasyon, 39 unit test
+- [~] Aşama 3: Prompt versiyonlama — config/prompts/trading_analysis_v1.yaml (semver + few-shot) teslim edildi; MLflow experiment entegrasyonu Aşama 4 ile birlikte gelecek
 - [ ] Aşama 4: Kendi kendini geliştirme döngüsü (prediction outcome job, bandit, Grafana "AI Analyst Performance" dashboard)
 - [ ] Aşama 5: Signal Generation entegrasyonu (ML_WEIGHT/LLM_WEIGHT, başlangıçta LLM ağırlığı düşük)
 
