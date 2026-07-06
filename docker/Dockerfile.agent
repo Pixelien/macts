@@ -47,7 +47,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 
 # TA-Lib runtime kütüphanesini kopyala (header'a gerek yok)
-COPY --from=builder /usr/lib/libta_lib.so* /usr/lib/
+COPY --from=builder /usr/lib/libta*.so* /usr/lib/
 
 # Minimum runtime paketleri
 RUN apt-get update && apt-get install -y --no-install-recommends \
