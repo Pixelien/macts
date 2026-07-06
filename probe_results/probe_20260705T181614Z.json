@@ -1,0 +1,108 @@
+[
+  {
+    "model": "nvidia/nemotron-3-super-120b",
+    "reachable": false,
+    "attempts": 1,
+    "parse_ok": 0,
+    "latencies_s": [],
+    "errors": [
+      "404 — endpoint yok (katalog eleği): 404 page not found\n"
+    ],
+    "samples": []
+  },
+  {
+    "model": "zhipuai/glm-5.1",
+    "reachable": false,
+    "attempts": 1,
+    "parse_ok": 0,
+    "latencies_s": [],
+    "errors": [
+      "404 — endpoint yok (katalog eleği): 404 page not found\n"
+    ],
+    "samples": []
+  },
+  {
+    "model": "deepseek-ai/deepseek-v4-pro",
+    "reachable": true,
+    "attempts": 5,
+    "parse_ok": 5,
+    "latencies_s": [
+      19.63,
+      5.14,
+      13.0,
+      8.74,
+      16.32
+    ],
+    "errors": [],
+    "samples": [
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.78,
+        "reasoning": "Price below all key EMAs/SMAs, MACD deeply negative with widening histogram, RSI <40. Bearish momentum confirmed by lower highs/lows in recent candles. Close near lower Bollinger Band suggests continued downside pressure.",
+        "risk_flags": [
+          "ATR elevated at 385, indicating high volatility",
+          "Potential for short-term mean reversion bounce from oversold RSI"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all major EMAs/SMAs, bearish EMA alignment (9<21<50). MACD deeply negative with widening histogram. RSI 38.2 shows weak momentum. Price near lower Bollinger Band. Recent candles show lower highs and lows.",
+        "risk_flags": [
+          "Low volume on last candle",
+          "Potential bounce at BB lower band",
+          "RSI approaching oversold"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all major EMAs/SMAs, MACD deeply negative with expanding histogram, RSI <40. Bearish momentum with lower highs/lows in recent candles. Close near lower Bollinger Band suggests continued downside pressure.",
+        "risk_flags": [
+          "Low RSI approaching oversold could trigger snap bounce",
+          "Volume declining on last candle may indicate fading momentum",
+          "Tight stop needed due to 1m timeframe volatility"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all major EMAs/SMAs, bearish EMA alignment (9<21<50). RSI at 38.2 shows weak momentum. MACD deeply negative with expanding histogram. Price near lower Bollinger Band. Recent candles show consistent lower highs and lows.",
+        "risk_flags": [
+          "Low volume on recent candle may indicate weak conviction",
+          "Potential for mean reversion bounce from oversold BB touch"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all major EMAs/SMAs, MACD deeply negative with widening histogram, RSI <40. Bearish momentum confirmed by lower highs and lows in recent candles. ATR suggests volatility supports downside continuation.",
+        "risk_flags": [
+          "RSI approaching oversold but not yet extreme",
+          "Potential support near BB lower band at 106950"
+        ],
+        "time_horizon": "1h"
+      }
+    ]
+  },
+  {
+    "model": "qwen/qwen3.5-397b",
+    "reachable": false,
+    "attempts": 1,
+    "parse_ok": 0,
+    "latencies_s": [],
+    "errors": [
+      "404 — endpoint yok (katalog eleği): 404 page not found\n"
+    ],
+    "samples": []
+  }
+]

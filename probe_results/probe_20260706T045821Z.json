@@ -1,0 +1,206 @@
+[
+  {
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "reachable": true,
+    "attempts": 5,
+    "parse_ok": 5,
+    "latencies_s": [
+      33.01,
+      7.4,
+      13.49,
+      11.52,
+      9.37
+    ],
+    "errors": [],
+    "samples": [
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.62,
+        "reasoning": "Price below EMAs, MACD bearish, RSI near oversold, recent down candles suggest short-term bearish momentum.",
+        "risk_flags": [
+          "low volume variability",
+          "near Bollinger lower band"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.62,
+        "reasoning": "Price below EMAs 9/21/50, MACD line below signal with negative histogram, RSI 38 near oversold but not extreme, close just above lower Bollinger Band suggests bearish momentum with limited bounce potential.",
+        "risk_flags": [
+          "RSI near oversold may trigger short-term bounce",
+          "Declining volume could weaken move",
+          "Price close to lower BB limit downside"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.68,
+        "reasoning": "Price below all EMAs/SMAs, MACD histogram negative, RSI 38 near oversold, trading near lower Bollinger Band, indicating bearish momentum.",
+        "risk_flags": [
+          "RSI approaching oversold",
+          "Potential support at lower BB",
+          "Unexpected bullish news"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.68,
+        "reasoning": "RSI 38 shows weakening momentum; MACD line below signal with negative histogram; price sits below EMAs 9/21/50 and SMAs, near lower Bollinger band, indicating bearish bias.",
+        "risk_flags": [
+          "mixed candle signals",
+          "low timeframe noise",
+          "potential news impact"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.62,
+        "reasoning": "Price below EMAs, MACD histogram negative, RSI ~38 indicates bearish momentum; near lower Bollinger Band may limit downside.",
+        "risk_flags": [
+          "low RSI not extreme",
+          "potential whipsaw",
+          "low volume"
+        ],
+        "time_horizon": "1h"
+      }
+    ]
+  },
+  {
+    "model": "z-ai/glm-5.2",
+    "reachable": true,
+    "attempts": 5,
+    "parse_ok": 5,
+    "latencies_s": [
+      29.25,
+      31.57,
+      35.88,
+      38.36,
+      16.14
+    ],
+    "errors": [],
+    "samples": [
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all EMAs and SMAs with bearish MACD histogram widening. RSI at 38.2 shows weakening momentum. Consecutive lower highs and lows confirm downtrend. Price near lower Bollinger Band suggests continued bearish pressure.",
+        "risk_flags": [
+          "1m timeframe highly volatile",
+          "approaching oversold RSI zone",
+          "near lower Bollinger Band support"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all key EMAs/SMAs with bearish EMA stacking. MACD histogram deepening below signal. RSI at 38.2 with room to fall. Consistent lower highs across 5 candles confirms downtrend momentum.",
+        "risk_flags": [
+          "1m timeframe highly noisy",
+          "RSI approaching oversold may trigger bounce",
+          "ATR 385 indicates volatility risk"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all EMAs and SMAs with bearish EMA alignment. MACD histogram negative and widening. RSI at 38.2 with downward momentum. Consistent lower highs and lows across recent candles confirm sustained selling pressure.",
+        "risk_flags": [
+          "1m timeframe highly volatile",
+          "RSI approaching oversold may trigger bounce",
+          "Price near Bollinger lower band support at 106950"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all EMAs and SMAs with bearish MACD histogram widening. RSI at 38.2 approaching oversold but not yet there. Consistent lower highs and lows across recent candles confirm downtrend momentum.",
+        "risk_flags": [
+          "1m timeframe highly noise-prone",
+          "RSI nearing oversold may trigger reversal",
+          "ATR 385 on 1m suggests extreme volatility"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price below all key EMAs and SMAs with bearish MACD histogram widening. RSI at 38.2 shows weakening momentum. Recent candles confirm sustained lower highs and lower lows pattern.",
+        "risk_flags": [
+          "1m timeframe highly noisy",
+          "RSI approaching oversold may trigger bounce",
+          "ATR high relative to moves"
+        ],
+        "time_horizon": "1h"
+      }
+    ]
+  },
+  {
+    "model": "qwen/qwen3.5-397b-a17b",
+    "reachable": true,
+    "attempts": 5,
+    "parse_ok": 3,
+    "latencies_s": [
+      90.45,
+      91.75,
+      101.29
+    ],
+    "errors": [
+      "attempt 0: network ReadTimeout: The read operation timed out",
+      "attempt 1: network ReadTimeout: The read operation timed out"
+    ],
+    "samples": [
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price trades below all key EMAs and SMA50, confirming bearish trend. MACD histogram is negative and expanding. RSI at 38.2 indicates weak momentum without oversold reversal signals. Recent candles show lower highs and rejection at moving averages.",
+        "risk_flags": [
+          "RSI approaching oversold territory",
+          "High ATR indicates volatility",
+          "1m timeframe noise"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price trades below all key EMAs and SMA50, confirming bearish trend. MACD histogram is negative and expanding. RSI at 38.2 indicates weakness without oversold conditions. Recent candles show lower highs and rejection at moving averages.",
+        "risk_flags": [
+          "1m timeframe noise",
+          "RSI approaching oversold",
+          "High ATR volatility"
+        ],
+        "time_horizon": "1h"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "confidence": 0.72,
+        "reasoning": "Price trades below all key EMAs and SMA50, confirming bearish trend. RSI at 38.2 indicates weak momentum without oversold reversal signals. MACD histogram is negative and expanding, signaling accelerating downside pressure. Recent candles show lower highs and rejection at moving averages.",
+        "risk_flags": [
+          "RSI approaching oversold territory",
+          "High 1m volatility (ATR 385)",
+          "Potential mean reversion to BB middle"
+        ],
+        "time_horizon": "1h"
+      }
+    ]
+  }
+]
