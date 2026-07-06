@@ -340,6 +340,16 @@ services:
         limits:
           memory: 4G
 
+  # Faz 3: AI Analyst (LLM analiz katmanı) — feature flag ile kontrol edilir
+  agent-ai-analyst:
+    <<: *agent-base
+    container_name: macts-agent-ai-analyst
+    environment:
+      AGENT_NAME: ai_analyst
+      ENABLE_AI_ANALYST: ${ENABLE_AI_ANALYST:-false}
+      AI_ANALYST_INTERVAL_SECONDS: ${AI_ANALYST_INTERVAL_SECONDS:-900}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+
 # =============================================================================
 networks:
   macts-net:

@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -344,3 +344,28 @@ class CircuitBreakerEvent(BaseMessage):
     description: str
     action_taken: str   # close_all | halt_new_orders | reduce_positions
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+# =============================================================================
+# AI Analyst Modelleri (Faz 3)
+# =============================================================================
+
+class AIAnalysis(BaseMessage):
+    """AI Analyst (LLM) agent'ının tek sembol için ürettiği analiz.
+
+    Yayınlandığı stream: stream:ai_analysis.{symbol}
+    Şema, docs/AI_ANALYST_MODEL_SELECTION.md Aşama 3 sözleşmesiyle birebir
+    aynıdır ve scripts/nim_model_probe.py ile canlıda doğrulanmıştır.
+    """
+    symbol: str
+    direction: Literal["long", "short", "neutral"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str
+    risk_flags: list[str] = Field(default_factory=list)
+    time_horizon: Literal["1h", "4h", "1d"]
+
+    # LLM çağrı metadata'sı (usage tracking + bandit için)
+    model_id: str
+    prompt_version: str
+    latency_seconds: float | None = None
+    cache_hit: bool = False

@@ -107,6 +107,19 @@
 - [ ] InfluxDB retention policy (otomatik eski veri temizleme)
 - [ ] Grafana'ya prediction confidence paneli
 
+### Faz 3 — AI Analyst Katmanı (LLM) 🚧 Başladı
+
+**Hedef**: NVIDIA NIM üzerinden LLM analiz katmanı — ML sinyalini zenginleştirir, asla bloklamaz.
+
+**Karar kaynağı**: `docs/AI_ANALYST_MODEL_SELECTION.md` (Aşama 0 tamamlandı, canlı probe ile)
+
+- [x] Aşama 0: Model seçimi + canlı probe (birincil: nemotron-3-super-120b-a12b, yedek: deepseek-v4-pro)
+- [x] Aşama 1 / Paket 1: Agent iskeleti (`src/agents/ai_analyst/`), feature flag (`ENABLE_AI_ANALYST`), StaggeredScheduler (kota-güvenli 15 dk kadans), AIAnalysis şeması, compose girdisi, 25 unit test
+- [ ] Aşama 2 / Paket 2: `src/core/llm/` — nvidia_client, rate_limiter (30 RPM token bucket), backoff, Redis cache, fallback_chain (429≠5xx politikası), usage_tracker (Postgres llm_usage_log)
+- [ ] Aşama 3: Prompt versiyonlama (config/prompts/, semver, MLflow experiment)
+- [ ] Aşama 4: Kendi kendini geliştirme döngüsü (prediction outcome job, bandit, Grafana "AI Analyst Performance" dashboard)
+- [ ] Aşama 5: Signal Generation entegrasyonu (ML_WEIGHT/LLM_WEIGHT, başlangıçta LLM ağırlığı düşük)
+
 **Definition of Done**: Her dakika her sembol için canlı tahmin yayınlanıyor, Signal Generation Agent threshold üstü sinyalleri yayınlıyor, retrain loop her saat çalışıyor.
 
 **Tahmini süre**: 2-3 oturum (1 oturum = 1-2 saat)

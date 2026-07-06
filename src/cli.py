@@ -67,6 +67,7 @@ AGENT_REGISTRY: dict[str, str] = {
     "model_registry": "src.agents.model_registry.agent:ModelRegistryAgent",
     "circuit_breaker": "src.agents.circuit_breaker.agent:CircuitBreakerAgent",
     "grid_bot": "src.agents.grid_bot.agent:GridBotAgent",
+    "ai_analyst": "src.agents.ai_analyst.agent:AIAnalystAgent",
 }
 
 

@@ -140,6 +140,19 @@
 
 ---
 
+## Faz 3 — AI Analyst Katmanı (Devam Ediyor)
+
+**Aşama 0 tamamlandı (5 Tem 2026)**: NVIDIA NIM model seçimi canlı probe ile kilitlendi.
+- Birincil: `nvidia/nemotron-3-super-120b-a12b` (5/5 parse, p50 12.7s)
+- Yedek: `deepseek-ai/deepseek-v4-pro` | Deneysel: `z-ai/glm-5.2` | Elenen: qwen3.5 (500 + 84s)
+- Detay: `docs/AI_ANALYST_MODEL_SELECTION.md`, probe aracı: `scripts/nim_model_probe.py`
+
+**Aşama 1 / Paket 1 teslim edildi**: `agent-ai-analyst` servisi (feature flag: `ENABLE_AI_ANALYST=false` varsayılan — sistem davranışı DEĞİŞMEDİ).
+- Agent iskeleti, StaggeredScheduler (20 sembol × 15 dk, burst-korumalı, unit testle kanıtlı ≤30 istek/dk), `AIAnalysis` şeması, 25 unit test
+- LLM çağrısı henüz BAĞLI DEĞİL (stub, sahte veri yayınlamaz) — Paket 2'de `src/core/llm/` gelecek
+
+---
+
 ## Önemli Mimari Kararlar
 
 - **Mainnet REST + Testnet trade**: Veri mainnet'ten (gerçek piyasa), trade'ler testnet'e (risk yok)
