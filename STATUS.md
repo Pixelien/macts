@@ -155,6 +155,13 @@
 - Akış: cache → rate limit → zincir → pydantic doğrulama → `stream:ai_analysis.{symbol}` publish → usage kaydı. Doğrulanamayan çıktı asla yayınlanmaz; hiçbir hata sinyal üretimini bloklamaz.
 - Aktivasyon: `.env`'e `NVIDIA_API_KEY` + `ENABLE_AI_ANALYST=true`, sonra imaj rebuild + container restart. Anahtar yoksa agent çökmez, hata loglayıp boşta kalır.
 
+**Aşama 4 / Paket 3 teslim edildi (ilk yarı)**: Tahmin-vs-gerçek döngüsü + gözlemlenebilirlik.
+- Agent artık `stream:ticks.{sym}.kline.1m`'den son kapanışı izliyor; LLM payload'ı fiyatla zenginleştiriliyor (FeatureSnapshot'ta fiyat alanı yoktu — canlıdaki aşırı neutral yanlılığının olası nedeni buydu, düzeltildi)
+- Her yayınlanan analiz `llm_prediction`a entry_price + deadline ile kaydediliyor; 5 dk'lık `_outcome_loop` vadesi dolanları `classify_outcome` (±%0.10 flat band) ile `llm_prediction_outcome`a yazıyor
+- Yeni metrikler: `macts_ai_analyst_outcomes_total`, `latency_seconds` (histogram), `daily_quota_used` (gauge). Dashboard: Grafana → "AI Analyst Performance" (uid: macts-ai-analyst)
+- Düzeltme notu: cache hit oranı normal akışta ~0 (feature snapshot her dk benzersiz); cache'in değeri restart koruması — rapordaki %20 tasarruf hedefi geri çekildi
+- 5/5 Claude Skill tamam (`continuous-improvement-loop` eklendi — bandit planı orada)
+
 ---
 
 ## Önemli Mimari Kararlar

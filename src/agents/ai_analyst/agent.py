@@ -41,8 +41,15 @@ import os
 import time
 from typing import Any
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
+from src.agents.ai_analyst.outcome import (
+    HORIZON_SECONDS,
+    PredictionStore,
+    classify_outcome,
+    enrich_features_with_price,
+    parse_kline_close,
+)
 from src.agents.ai_analyst.scheduler import StaggeredScheduler
 from src.agents.base import BaseAgent, run_agent
 from src.core.database.postgres_repo import PostgresRepository
@@ -77,9 +84,14 @@ def ai_analysis_stream(symbol: str) -> str:
     return f"stream:ai_analysis.{symbol.lower()}"
 
 
+def kline_stream(symbol: str, interval: str = "1m") -> str:
+    return f"stream:ticks.{symbol.lower()}.kline.{interval}"
+
+
 # Env tabanlı konfigürasyon (Paket 2'de config/llm_config.yaml'a taşınacak)
 DEFAULT_INTERVAL_SECONDS = 900.0   # 15 dk — rapor §5 kota bütçesi
 SCHEDULER_TICK_SECONDS = 5.0       # due kontrol sıklığı
+OUTCOME_TICK_SECONDS = 300.0       # tahmin-vs-gerçek değerlendirme sıklığı
 
 
 def parse_bool_env(value: str | None) -> bool:
@@ -109,6 +121,23 @@ AI_TRACKED_SYMBOLS = Gauge(
     "Zamanlayıcıda takip edilen sembol sayısı",
 )
 
+AI_ANALYSIS_LATENCY = Histogram(
+    "macts_ai_analyst_latency_seconds",
+    "Başarılı LLM çağrısı gecikmesi",
+    buckets=(2, 5, 10, 15, 20, 30, 45, 60, 90),
+)
+
+AI_DAILY_QUOTA_USED = Gauge(
+    "macts_ai_analyst_daily_quota_used",
+    "Bugün kullanılan LLM istek sayısı (soft cap: llm_config.rate_limit.requests_per_day)",
+)
+
+AI_OUTCOMES_TOTAL = Counter(
+    "macts_ai_analyst_outcomes_total",
+    "Değerlendirilen tahmin sonuçları",
+    ["model_id", "horizon", "result"],  # result: correct | incorrect
+)
+
 
 class AIAnalystAgent(BaseAgent):
     """AI Analyst Agent."""
@@ -132,6 +161,9 @@ class AIAnalystAgent(BaseAgent):
         self._usage: UsageTracker | None = None
         self._prompt = None
         self._llm_ready = False
+        self._last_close: dict[str, float] = {}
+        self._kline_listeners: dict[str, asyncio.Task[None]] = {}
+        self._predictions: PredictionStore | None = None
 
     # =========================================================================
     # Lifecycle
@@ -216,9 +248,12 @@ class AIAnalystAgent(BaseAgent):
             await repo.connect()
             self._usage = UsageTracker(repo)
             await self._usage.ensure_table()
+            self._predictions = PredictionStore(repo)
+            await self._predictions.ensure_tables()
         except Exception as e:
             self.logger.warning("llm_usage_tracker_unavailable", error=str(e))
             self._usage = None
+            self._predictions = None
 
         self._llm_ready = True
         self.logger.info(
@@ -243,8 +278,9 @@ class AIAnalystAgent(BaseAgent):
 
         self.logger.info("ai_analyst_loop_started")
 
-        # Universe dinleyicisi arka planda
+        # Universe dinleyicisi + outcome değerlendirme döngüsü arka planda
         self._tasks.append(asyncio.create_task(self._universe_listener()))
+        self._tasks.append(asyncio.create_task(self._outcome_loop()))
 
         # Zamanlayıcı döngüsü
         while not self._stop_event.is_set():
@@ -253,6 +289,8 @@ class AIAnalystAgent(BaseAgent):
             for symbol in self._scheduler.due_symbols(now):
                 await self._analyze_symbol(symbol)
                 self._scheduler.mark_ran(symbol, now=time.time())
+            if self._limiter is not None:
+                AI_DAILY_QUOTA_USED.set(self._limiter.daily_used)
 
             try:
                 await asyncio.wait_for(
@@ -324,11 +362,17 @@ class AIAnalystAgent(BaseAgent):
             self._feature_listeners[symbol] = asyncio.create_task(
                 self._feature_listener(symbol)
             )
+            self._kline_listeners[symbol] = asyncio.create_task(
+                self._kline_listener(symbol)
+            )
         for symbol in removed:
-            task = self._feature_listeners.pop(symbol, None)
-            if task and not task.done():
-                task.cancel()
+            for registry in (self._feature_listeners, self._kline_listeners):
+                task = registry.pop(symbol, None)
+                if task and not task.done():
+                    task.cancel()
             self._latest_features.pop(symbol, None)
+            # _last_close bilinçli olarak SİLİNMEZ: universe'ten düşen sembolün
+            # bekleyen tahminleri hâlâ değerlendirilebilmeli (son bilinen fiyat).
 
         if added or removed:
             self.logger.info(
@@ -351,6 +395,28 @@ class AIAnalystAgent(BaseAgent):
         except Exception as e:
             self.logger.exception(
                 "feature_listener_failed", symbol=symbol, error=str(e)
+            )
+
+    async def _kline_listener(self, symbol: str) -> None:
+        """Kapanan mumların close fiyatını takip et.
+
+        Kullanım: LLM payload zenginleştirme (fiyat bağlamı), tahmin
+        entry_price'ı ve outcome exit_price'ı. FeatureSnapshot'ta fiyat
+        alanı olmadığı için tek fiyat kaynağımız bu stream.
+        """
+        stream = kline_stream(symbol)
+        try:
+            async for msg in self.redis.subscribe(stream, from_beginning=False):
+                if self._stop_event.is_set():
+                    break
+                close = parse_kline_close(msg)
+                if close is not None:
+                    self._last_close[symbol] = close
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.exception(
+                "kline_listener_failed", symbol=symbol, error=str(e)
             )
 
     # =========================================================================
@@ -377,6 +443,11 @@ class AIAnalystAgent(BaseAgent):
             return
 
         assert self._llm_config and self._chain and self._limiter and self._prompt
+
+        # 0) Payload'ı son kapanış fiyatıyla zenginleştir (FeatureSnapshot'ta
+        # fiyat yok; fiyatsız prompt aşırı neutral yanlılığı üretiyordu)
+        entry_price = self._last_close.get(symbol)
+        features = enrich_features_with_price(features, entry_price)
 
         # 1) Cache kontrolü
         cache_key = build_cache_key(
@@ -453,7 +524,7 @@ class AIAnalystAgent(BaseAgent):
             )
             return
 
-        # 5) Yayınla + cache'le + kaydet
+        # 5) Yayınla + cache'le + kaydet + tahmin olarak sakla (outcome döngüsü için)
         analysis_dict = analysis.model_dump(mode="json")
         await self._publish_analysis(symbol, analysis_dict, cache_hit=False)
         if self._analysis_cache is not None:
@@ -461,6 +532,9 @@ class AIAnalystAgent(BaseAgent):
         await self._record_usage(
             symbol, used_model.model_id, usage, latency, True, None
         )
+        AI_ANALYSIS_LATENCY.observe(latency)
+        if self._predictions is not None and entry_price is not None:
+            await self._predictions.record_prediction(analysis_dict, entry_price)
         AI_ANALYSES_TOTAL.labels(
             symbol=symbol, model_id=used_model.model_id, status="ok"
         ).inc()
@@ -479,6 +553,64 @@ class AIAnalystAgent(BaseAgent):
             AI_ANALYSES_TOTAL.labels(
                 symbol=symbol, model_id="cache", status="ok"
             ).inc()
+
+    async def _outcome_loop(self) -> None:
+        """Vadesi dolan tahminleri gerçekleşen fiyatla karşılaştır (Aşama 4).
+
+        ~5 dk'da bir: llm_prediction'dan due kayıtları çek, son kapanış
+        fiyatıyla sınıflandır (classify_outcome), llm_prediction_outcome'a
+        yaz. Fiyatı henüz bilinmeyen sembol sonraki tick'te tekrar denenir.
+        """
+        while not self._stop_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._stop_event.wait(), timeout=OUTCOME_TICK_SECONDS
+                )
+                break  # stop geldi
+            except asyncio.TimeoutError:
+                pass
+
+            if self._predictions is None or not self._predictions.ready:
+                continue
+            try:
+                due = await self._predictions.fetch_due()
+            except Exception as e:
+                self.logger.warning("outcome_fetch_failed", error=str(e))
+                continue
+
+            evaluated = 0
+            for pred in due:
+                exit_price = self._last_close.get(pred["symbol"])
+                if exit_price is None:
+                    continue  # fiyat gelince değerlendirilecek
+                try:
+                    return_pct, actual, correct = classify_outcome(
+                        pred["direction"], float(pred["entry_price"]), exit_price
+                    )
+                except ValueError as e:
+                    self.logger.warning(
+                        "outcome_classify_failed", prediction=pred["id"], error=str(e)
+                    )
+                    continue
+                ok = await self._predictions.record_outcome(
+                    pred["id"],
+                    exit_price=exit_price,
+                    return_pct=return_pct,
+                    actual_direction=actual,
+                    correct=correct,
+                    eval_delay_seconds=float(pred["delay_s"]),
+                )
+                if ok:
+                    evaluated += 1
+                    AI_OUTCOMES_TOTAL.labels(
+                        model_id=pred["model_id"],
+                        horizon=pred["time_horizon"],
+                        result="correct" if correct else "incorrect",
+                    ).inc()
+            if evaluated:
+                self.logger.info(
+                    "outcomes_evaluated", count=evaluated, pending=len(due) - evaluated
+                )
 
     async def _record_usage(
         self, symbol: str, model_id: str,

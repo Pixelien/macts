@@ -1,0 +1,149 @@
+{
+  "title": "AI Analyst Performance",
+  "uid": "macts-ai-analyst",
+  "tags": ["macts", "ai-analyst", "faz3"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Yön Doğruluğu % (seçili aralık)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(increase(macts_ai_analyst_outcomes_total{result=\"correct\"}[$__range])) / clamp_min(sum(increase(macts_ai_analyst_outcomes_total[$__range])), 1)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 40 },
+              { "color": "green", "value": 55 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Günlük Kota Kullanımı (soft cap: 2000)",
+      "type": "gauge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "macts_ai_analyst_daily_quota_used" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 2000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1500 },
+              { "color": "red", "value": 1900 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "LLM Gecikmesi p50 / p95 (s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.50, sum(rate(macts_ai_analyst_latency_seconds_bucket[15m])) by (le))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "p95",
+          "expr": "histogram_quantile(0.95, sum(rate(macts_ai_analyst_latency_seconds_bucket[15m])) by (le))"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "title": "Analizler (durum bazında, saatlik)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{status}}",
+          "expr": "sum(increase(macts_ai_analyst_analyses_total[1h])) by (status)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "stacking": { "mode": "normal" } } }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "title": "Doğruluk % — model bazında (6h pencere)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{model_id}}",
+          "expr": "100 * sum(increase(macts_ai_analyst_outcomes_total{result=\"correct\"}[6h])) by (model_id) / clamp_min(sum(increase(macts_ai_analyst_outcomes_total[6h])) by (model_id), 1)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "title": "Doğruluk % — time_horizon bazında (seçili aralık)",
+      "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{horizon}}",
+          "expr": "100 * sum(increase(macts_ai_analyst_outcomes_total{result=\"correct\"}[$__range])) by (horizon) / clamp_min(sum(increase(macts_ai_analyst_outcomes_total[$__range])) by (horizon), 1)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "title": "Cache hit / rate-limit skip (saatlik)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "cache_hit",
+          "expr": "sum(increase(macts_ai_analyst_analyses_total{model_id=\"cache\"}[1h]))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "rate_limited",
+          "expr": "sum(increase(macts_ai_analyst_analyses_total{status=\"rate_limited\"}[1h]))"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    }
+  ]
+}
