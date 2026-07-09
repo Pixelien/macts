@@ -162,6 +162,18 @@
 - Düzeltme notu: cache hit oranı normal akışta ~0 (feature snapshot her dk benzersiz); cache'in değeri restart koruması — rapordaki %20 tasarruf hedefi geri çekildi
 - 5/5 Claude Skill tamam (`continuous-improvement-loop` eklendi — bandit planı orada)
 
+**İlk 2 günlük outcome değerlendirmesi (9 Tem) — Paket 4 kararlarının dayanağı**:
+- 2.991 değerlendirme (tamamı 1h — model hiç 4h/1d seçmedi). Baz oranlar: flat %41.7, down %33.0, up %25.2
+- Yön doğruluğu baza karşı hafif pozitif ama trade edilemez: long %30.2 (baz %25.2, 1.20x), neutral %46.8 (1.12x), short %34.1 (1.03x)
+- **Ters kalibrasyon**: güven arttıkça isabet düştü (0.40-0.50: %43.8 → 0.72-0.78: %22.9). Model momentum-takipçisi, 1h piyasa mean-reverting
+- Operasyonel: 30 RPM tavanda dahi 151× 429 → tavan 20 RPM'e indirildi; 38 parse hatası (%1.4) → tek retry eklendi
+- **Karar: LLM_WEIGHT=0 kalır, bandit ertelendi, yatırım prompt v2'ye**
+
+**Aşama 4 / Paket 4 teslim edildi**: Prompt v2 + A/B altyapısı.
+- Agent mum geçmişi buffer'ı tutuyor (son 20 kapanan mum); LLM payload'ında artık sekans var (v1'de few-shot mum içerirken gerçek payload içermiyordu — tutarsızlık giderildi)
+- `trading_analysis_v2`: mean-reversion farkındalığı, sekans-tabanlı trend/tükeniş ayrımı, vade seçim talimatı, kalibrasyon tavanı (max 0.75), 3 few-shot (gerçek payload formatında)
+- A/B: `llm_config.prompt_versions` listesi — her sembol her turda sıradaki versiyonu kullanır; karşılaştırma `llm_prediction.prompt_version` üzerinden (SQL: continuous-improvement-loop skill)
+
 ---
 
 ## Önemli Mimari Kararlar

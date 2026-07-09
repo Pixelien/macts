@@ -44,6 +44,26 @@ WHERE o.evaluated_at > now() - interval '7 days'
 GROUP BY 1, 2 ORDER BY 1, 2;
 ```
 
+## İlk değerlendirme bulguları (9 Tem 2026 — 2 gün, 2.991 outcome)
+
+- Baz oranlar: flat %41.7 / down %33.0 / up %25.2. Model liftleri: long 1.20x,
+  neutral 1.12x, short 1.03x — pozitif ama trade edilemez.
+- TERS KALİBRASYON: confidence arttıkça isabet düştü (%43.8 → %22.9).
+  v1 momentum-takipçisi; 1h kripto mean-reverting. Yeni prompt yazarken
+  bu bulgu esas alınır (v2'de mean-reversion kuralları var).
+- Model v1'de HİÇ 4h/1d seçmedi -> vade talimatı promptta açık olmalı.
+- A/B karşılaştırma sorgusu (v1 vs v2):
+
+```sql
+SELECT p.prompt_version, p.direction, count(*) AS n,
+       round(100.0*count(*) FILTER (WHERE o.correct)/count(*),1) AS acc
+FROM llm_prediction_outcome o JOIN llm_prediction p ON p.id=o.prediction_id
+WHERE p.ts > 'DEPLOY_TARIHI'
+GROUP BY 1,2 ORDER BY 1,2;
+```
+
+Anlamlılık için kol başına min ~500 outcome bekle (~2 gün).
+
 ## Bandit / A-B genişletmesi (Aşama 4 ikinci yarı — HENÜZ YAZILMADI)
 
 Ön koşul: en az ~3-5 gün outcome verisi (horizon başına 100+ örnek) birikmeli;

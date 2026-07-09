@@ -248,20 +248,45 @@ class PredictionStore:
             return False
 
 
-def enrich_features_with_price(
-    features: dict[str, Any], close: float | None
-) -> dict[str, Any]:
-    """LLM payload'ına son kapanış fiyatını ekle.
+def parse_kline_ohlcv(msg: dict[str, Any]) -> tuple[float, float, float, float, float] | None:
+    """Kapanmış kline mesajından (open, high, low, close, volume) çıkar.
 
-    FeatureSnapshot şemasında fiyat alanı YOK (yalnızca indikatörler) —
-    fiyatsız prompt modelin ortalamalara göre konum değerlendirmesini
-    engelliyordu (canlıda gözlenen aşırı neutral yanlılığının olası nedeni).
+    Prompt v2'nin mum geçmişi buffer'ı için. Yalnızca is_closed mumlar;
+    Redis Streams alanları string'dir, güvenli float dönüşümü yapılır.
     """
-    if close is None:
+    if parse_kline_close(msg) is None:  # is_closed + close doğrulaması
+        return None
+    try:
+        return (
+            float(msg["open"]), float(msg["high"]), float(msg["low"]),
+            float(msg["close"]), float(msg["volume"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def enrich_features_with_price(
+    features: dict[str, Any],
+    close: float | None,
+    recent_candles: list[tuple[float, float, float, float, float]] | None = None,
+) -> dict[str, Any]:
+    """LLM payload'ına fiyat bağlamı ekle: son kapanış + mum geçmişi.
+
+    FeatureSnapshot şemasında fiyat alanı YOK (yalnızca indikatörler).
+    Paket 3: close eklendi. Paket 4: mum sekansı eklendi — 2 günlük outcome
+    verisi modelin tek anlık fotoğrafla sekans dinamiğini (mean-reversion vs
+    devam) ayırt edemediğini gösterdi; v1 few-shot örnekleri mum içerirken
+    gerçek payload içermiyordu, bu tutarsızlık da burada giderildi.
+    """
+    if close is None and not recent_candles:
         return features
     enriched = dict(features)
-    enriched["close"] = close
-    # custom alanı JSON string olarak gelmiş olabilir; dokunma.
+    if close is not None:
+        enriched["close"] = close
+    if recent_candles:
+        enriched["recent_closed_candles_ohlcv"] = [
+            list(c) for c in recent_candles
+        ]
     return enriched
 
 

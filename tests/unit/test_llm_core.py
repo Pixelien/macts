@@ -305,18 +305,18 @@ class TestLLMConfig:
         cfg = LLMConfig()
         assert cfg.primary.model_id == "nvidia/nemotron-3-super-120b-a12b"
         assert cfg.fallback.model_id == "deepseek-ai/deepseek-v4-pro"
-        assert cfg.rate_limit.requests_per_minute == 30
+        assert cfg.rate_limit.requests_per_minute == 20
         assert cfg.primary.max_tokens >= 4096
 
     def test_missing_file_returns_defaults(self, tmp_path) -> None:
         cfg = load_llm_config(tmp_path / "yok.yaml")
-        assert cfg.rate_limit.requests_per_minute == 30
+        assert cfg.rate_limit.requests_per_minute == 20
 
     def test_corrupt_file_returns_defaults(self, tmp_path) -> None:
         p = tmp_path / "bozuk.yaml"
         p.write_text("rate_limit: [bu, gecersiz, yapi")
         cfg = load_llm_config(p)
-        assert cfg.rate_limit.requests_per_minute == 30
+        assert cfg.rate_limit.requests_per_minute == 20
 
     def test_yaml_overrides_apply(self, tmp_path) -> None:
         p = tmp_path / "llm.yaml"
@@ -348,3 +348,44 @@ class TestPrompts:
         msgs = build_messages(t, {"rsi": 38.2})
         assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
         assert "38.2" in msgs[-1]["content"]
+
+
+class TestABPromptConfig:
+    def test_effective_versions_default_single(self) -> None:
+        cfg = LLMConfig()
+        assert cfg.effective_prompt_versions == ["trading_analysis_v1"]
+
+    def test_effective_versions_ab_list(self) -> None:
+        cfg = LLMConfig(prompt_versions=["v1", "v2"])
+        assert cfg.effective_prompt_versions == ["v1", "v2"]
+
+    def test_repo_yaml_configures_ab(self) -> None:
+        cfg = load_llm_config("config/llm_config.yaml")
+        assert cfg.effective_prompt_versions == [
+            "trading_analysis_v1", "trading_analysis_v2"
+        ]
+        assert cfg.rate_limit.requests_per_minute == 20
+
+    def test_repo_v2_template_loads(self) -> None:
+        t = load_prompt("trading_analysis_v2")
+        assert t.version == "trading_analysis_v2"
+        assert len(t.few_shot) >= 3
+        assert "MEAN REVERSION" in t.system_prompt
+        assert "never exceed 0.75" in t.system_prompt
+
+
+class TestPromptABSelector:
+    def test_alternates_per_symbol(self) -> None:
+        """Seçici mantığının saf simülasyonu (agent'taki ile aynı algoritma)."""
+        versions = ["v1", "v2"]
+        cycle: dict[str, int] = {}
+
+        def select(symbol: str) -> str:
+            idx = cycle.get(symbol, 0)
+            cycle[symbol] = idx + 1
+            return versions[idx % len(versions)]
+
+        assert [select("BTC") for _ in range(4)] == ["v1", "v2", "v1", "v2"]
+        # farklı semboller bağımsız döner
+        assert select("ETH") == "v1"
+        assert select("BTC") == "v1"

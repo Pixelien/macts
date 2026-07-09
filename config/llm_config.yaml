@@ -5,6 +5,10 @@
 base_url: https://integrate.api.nvidia.com/v1
 request_timeout_seconds: 90.0
 prompt_version: trading_analysis_v1
+# A/B: sembol bazında dönüşümlü — karşılaştırma llm_prediction.prompt_version üzerinden
+prompt_versions:
+  - trading_analysis_v1
+  - trading_analysis_v2
 
 primary:
   model_id: nvidia/nemotron-3-super-120b-a12b
@@ -17,7 +21,7 @@ fallback:
   temperature: 0.2
 
 rate_limit:
-  requests_per_minute: 30   # NVIDIA ücretsiz katman ~40 RPM'in %75'i
+  requests_per_minute: 20   # 30 RPM'de dahi canlıda 429 gözlendi (151/2.5 gün) — pay artırıldı
   requests_per_day: 2000    # günlük soft cap (rapor §5)
 
 cache:

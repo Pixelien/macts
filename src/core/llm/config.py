@@ -31,7 +31,7 @@ class LLMModelConfig(BaseModel):
 class LLMRateLimitConfig(BaseModel):
     """Kota kısıtları — NVIDIA ücretsiz katman: ~40 RPM, anahtar bazında global."""
 
-    requests_per_minute: int = 30   # 40 RPM'in %75'i (güvenlik payı)
+    requests_per_minute: int = 20   # canlıda 30 RPM'de dahi 429 gözlendi (151 adet/2.5 gün) -> tavan düşürüldü
     requests_per_day: int = 2000    # günlük soft cap (rapor §5)
 
 
@@ -57,6 +57,14 @@ class LLMConfig(BaseModel):
     cache: LLMCacheConfig = Field(default_factory=LLMCacheConfig)
     request_timeout_seconds: float = 90.0
     prompt_version: str = "trading_analysis_v1"
+    # A/B: birden fazla versiyon verilirse sembol bazında dönüşümlü seçilir;
+    # boşsa yalnızca prompt_version kullanılır. Karşılaştırma: llm_prediction
+    # tablosundaki prompt_version alanı üzerinden (continuous-improvement-loop skill).
+    prompt_versions: list[str] = Field(default_factory=list)
+
+    @property
+    def effective_prompt_versions(self) -> list[str]:
+        return self.prompt_versions or [self.prompt_version]
 
     @property
     def api_key(self) -> str | None:

@@ -115,3 +115,35 @@ class TestHorizonContract:
         assert HORIZON_SECONDS["1h"] == 3600
         assert HORIZON_SECONDS["4h"] == 14400
         assert HORIZON_SECONDS["1d"] == 86400
+
+
+class TestParseKlineOhlcv:
+    def test_closed_kline_full_ohlcv(self) -> None:
+        from src.agents.ai_analyst.outcome import parse_kline_ohlcv
+        msg = {"open": "100.0", "high": "101.5", "low": "99.5",
+               "close": "101.0", "volume": "1250.4", "is_closed": "True"}
+        assert parse_kline_ohlcv(msg) == (100.0, 101.5, 99.5, 101.0, 1250.4)
+
+    def test_open_kline_rejected(self) -> None:
+        from src.agents.ai_analyst.outcome import parse_kline_ohlcv
+        msg = {"open": "100", "high": "101", "low": "99",
+               "close": "101", "volume": "1", "is_closed": "false"}
+        assert parse_kline_ohlcv(msg) is None
+
+    def test_missing_field_rejected(self) -> None:
+        from src.agents.ai_analyst.outcome import parse_kline_ohlcv
+        msg = {"close": "101", "is_closed": "True"}  # OHLV eksik
+        assert parse_kline_ohlcv(msg) is None
+
+
+class TestEnrichWithCandles:
+    def test_candles_added(self) -> None:
+        out = enrich_features_with_price(
+            {"rsi_14": "38"}, 100.0, [(1.0, 2.0, 0.5, 1.5, 10.0)]
+        )
+        assert out["close"] == 100.0
+        assert out["recent_closed_candles_ohlcv"] == [[1.0, 2.0, 0.5, 1.5, 10.0]]
+
+    def test_no_context_passthrough(self) -> None:
+        original = {"rsi_14": "38"}
+        assert enrich_features_with_price(original, None, []) is original

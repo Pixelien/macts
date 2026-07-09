@@ -39,6 +39,7 @@ import asyncio
 import json
 import os
 import time
+from collections import deque
 from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -49,6 +50,7 @@ from src.agents.ai_analyst.outcome import (
     classify_outcome,
     enrich_features_with_price,
     parse_kline_close,
+    parse_kline_ohlcv,
 )
 from src.agents.ai_analyst.scheduler import StaggeredScheduler
 from src.agents.base import BaseAgent, run_agent
@@ -92,6 +94,7 @@ def kline_stream(symbol: str, interval: str = "1m") -> str:
 DEFAULT_INTERVAL_SECONDS = 900.0   # 15 dk — rapor §5 kota bütçesi
 SCHEDULER_TICK_SECONDS = 5.0       # due kontrol sıklığı
 OUTCOME_TICK_SECONDS = 300.0       # tahmin-vs-gerçek değerlendirme sıklığı
+CANDLE_BUFFER_SIZE = 20            # LLM'e verilen mum geçmişi (prompt v2)
 
 
 def parse_bool_env(value: str | None) -> bool:
@@ -162,8 +165,11 @@ class AIAnalystAgent(BaseAgent):
         self._prompt = None
         self._llm_ready = False
         self._last_close: dict[str, float] = {}
+        self._recent_candles: dict[str, deque] = {}
         self._kline_listeners: dict[str, asyncio.Task[None]] = {}
         self._predictions: PredictionStore | None = None
+        self._prompts: dict[str, Any] = {}          # version -> PromptTemplate
+        self._prompt_cycle: dict[str, int] = {}     # symbol -> A/B sayacı
 
     # =========================================================================
     # Lifecycle
@@ -219,7 +225,11 @@ class AIAnalystAgent(BaseAgent):
             requests_per_minute=self._llm_config.rate_limit.requests_per_minute,
             requests_per_day=self._llm_config.rate_limit.requests_per_day,
         )
-        self._prompt = load_prompt(self._llm_config.prompt_version)
+        # A/B: yapılandırılan tüm prompt versiyonlarını yükle
+        self._prompts = {
+            v: load_prompt(v) for v in self._llm_config.effective_prompt_versions
+        }
+        self._prompt = next(iter(self._prompts.values()))  # geriye dönük alan
 
         # Redis cache (best-effort — bağlanamazsa cache'siz devam)
         try:
@@ -261,8 +271,20 @@ class AIAnalystAgent(BaseAgent):
             primary=self._llm_config.primary.model_id,
             fallback=self._llm_config.fallback.model_id,
             rpm_cap=self._llm_config.rate_limit.requests_per_minute,
-            prompt_version=self._llm_config.prompt_version,
+            prompt_versions=list(self._prompts),
         )
+
+    def _select_prompt_version(self, symbol: str) -> str:
+        """A/B seçici: her sembol her turda sıradaki versiyonu kullanır.
+
+        Sembol bazında dönüşüm, iki kolun aynı sembolleri eşit görmesini
+        sağlar (sembol etkisi karşılaştırmayı bozamaz). Tek versiyon
+        yapılandırıldıysa hep onu döndürür.
+        """
+        versions = list(self._prompts)
+        idx = self._prompt_cycle.get(symbol, 0)
+        self._prompt_cycle[symbol] = idx + 1
+        return versions[idx % len(versions)]
 
     async def _run(self) -> None:
         """Ana iş döngüsü."""
@@ -412,6 +434,11 @@ class AIAnalystAgent(BaseAgent):
                 close = parse_kline_close(msg)
                 if close is not None:
                     self._last_close[symbol] = close
+                    ohlcv = parse_kline_ohlcv(msg)
+                    if ohlcv is not None:
+                        self._recent_candles.setdefault(
+                            symbol, deque(maxlen=CANDLE_BUFFER_SIZE)
+                        ).append(ohlcv)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -444,14 +471,16 @@ class AIAnalystAgent(BaseAgent):
 
         assert self._llm_config and self._chain and self._limiter and self._prompt
 
-        # 0) Payload'ı son kapanış fiyatıyla zenginleştir (FeatureSnapshot'ta
-        # fiyat yok; fiyatsız prompt aşırı neutral yanlılığı üretiyordu)
+        # 0) Prompt versiyonu seç (A/B) + payload'ı fiyat bağlamıyla zenginleştir
+        prompt_version = self._select_prompt_version(symbol)
+        template = self._prompts[prompt_version]
         entry_price = self._last_close.get(symbol)
-        features = enrich_features_with_price(features, entry_price)
+        candles = list(self._recent_candles.get(symbol, ()))
+        features = enrich_features_with_price(features, entry_price, candles)
 
         # 1) Cache kontrolü
         cache_key = build_cache_key(
-            symbol, features, self._llm_config.prompt_version,
+            symbol, features, prompt_version,
             self._llm_config.primary.model_id,
         )
         if self._analysis_cache is not None:
@@ -474,7 +503,7 @@ class AIAnalystAgent(BaseAgent):
             return
 
         # 3) Fallback zinciriyle çağrı
-        messages = build_messages(self._prompt, features)
+        messages = build_messages(template, features)
 
         async def call(model: LLMModelConfig):
             assert self._llm_client is not None
@@ -501,27 +530,46 @@ class AIAnalystAgent(BaseAgent):
             await self._record_usage(symbol, "chain", None, None, False, str(e))
             return
 
-        # 4) Parse + şema doğrulama (doğrulanamayan çıktı ASLA yayınlanmaz)
-        try:
-            payload = extract_json(content)
-            payload.setdefault("symbol", symbol)
-            analysis = AIAnalysis(
-                **payload,
-                model_id=used_model.model_id,
-                prompt_version=self._llm_config.prompt_version,
-                latency_seconds=round(latency, 3),
-            )
-        except Exception as e:
-            AI_ANALYSES_TOTAL.labels(
-                symbol=symbol, model_id=used_model.model_id, status="parse_error"
-            ).inc()
-            self.logger.warning(
-                "analysis_parse_failed", symbol=symbol,
-                model=used_model.model_id, error=str(e),
-            )
-            await self._record_usage(
-                symbol, used_model.model_id, usage, latency, False, f"parse: {e}"
-            )
+        # 4) Parse + şema doğrulama (doğrulanamayan çıktı ASLA yayınlanmaz).
+        # Parse hatasında TEK retry (kota izin veriyorsa) — canlıda parse
+        # hatalarının ~%1.4 oranında tekil/rastgele olduğu gözlendi.
+        analysis = None
+        for parse_attempt in (0, 1):
+            try:
+                payload = extract_json(content)
+                payload.setdefault("symbol", symbol)
+                analysis = AIAnalysis(
+                    **payload,
+                    model_id=used_model.model_id,
+                    prompt_version=prompt_version,
+                    latency_seconds=round(latency, 3),
+                )
+                break
+            except Exception as e:
+                await self._record_usage(
+                    symbol, used_model.model_id, usage, latency, False,
+                    f"parse: {e}", prompt_version=prompt_version,
+                )
+                if parse_attempt == 1 or not self._limiter.try_acquire():
+                    AI_ANALYSES_TOTAL.labels(
+                        symbol=symbol, model_id=used_model.model_id,
+                        status="parse_error",
+                    ).inc()
+                    self.logger.warning(
+                        "analysis_parse_failed", symbol=symbol,
+                        model=used_model.model_id, error=str(e),
+                        retried=bool(parse_attempt),
+                    )
+                    return
+                try:
+                    content, usage, latency, used_model = await self._chain.run(call)
+                except Exception as retry_err:
+                    self.logger.warning(
+                        "analysis_parse_retry_call_failed",
+                        symbol=symbol, error=str(retry_err),
+                    )
+                    return
+        if analysis is None:
             return
 
         # 5) Yayınla + cache'le + kaydet + tahmin olarak sakla (outcome döngüsü için)
@@ -530,7 +578,8 @@ class AIAnalystAgent(BaseAgent):
         if self._analysis_cache is not None:
             await self._analysis_cache.set(cache_key, analysis_dict)
         await self._record_usage(
-            symbol, used_model.model_id, usage, latency, True, None
+            symbol, used_model.model_id, usage, latency, True, None,
+            prompt_version=prompt_version,
         )
         AI_ANALYSIS_LATENCY.observe(latency)
         if self._predictions is not None and entry_price is not None:
@@ -616,13 +665,14 @@ class AIAnalystAgent(BaseAgent):
         self, symbol: str, model_id: str,
         usage: dict[str, Any] | None, latency: float | None,
         success: bool, error: str | None,
+        prompt_version: str | None = None,
     ) -> None:
         if self._usage is None:
             return
         assert self._llm_config is not None
         await self._usage.record(
             symbol=symbol, model_id=model_id,
-            prompt_version=self._llm_config.prompt_version,
+            prompt_version=prompt_version or self._llm_config.prompt_version,
             usage=usage, latency_seconds=latency,
             success=success, error=error,
         )
