@@ -7,7 +7,7 @@ request_timeout_seconds: 90.0
 prompt_version: trading_analysis_v1
 # A/B: sembol bazında dönüşümlü — karşılaştırma llm_prediction.prompt_version üzerinden
 prompt_versions:
-  - trading_analysis_v1
+#  - trading_analysis_v1  # emekli (11 Tem A-B sonucu: v2 her eksende >= v1)
   - trading_analysis_v2
 
 primary:
