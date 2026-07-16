@@ -75,6 +75,7 @@ services:
       - macts-net
 
   kafka:
+    init: true
     image: confluentinc/cp-kafka:7.5.0
     container_name: macts-kafka
     restart: unless-stopped
