@@ -34,7 +34,13 @@ scrape_configs:
           - "agent-monitoring:8000"
           - "agent-model-registry:8000"
           - "agent-circuit-breaker:8000"
+          - "agent-ai-analyst:8000"
     metrics_path: /metrics
+
+  # Sunucu kaynak metrikleri (bellek/swap/load/zombie) — Paket 5
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
 
   # Redis exporter (TODO: redis_exporter sidecar ekle)
   # - job_name: "redis"

@@ -359,11 +359,10 @@ class TestABPromptConfig:
         cfg = LLMConfig(prompt_versions=["v1", "v2"])
         assert cfg.effective_prompt_versions == ["v1", "v2"]
 
-    def test_repo_yaml_configures_ab(self) -> None:
+    def test_repo_yaml_configures_single_v2(self) -> None:
+        """11 Tem A/B sonucu: v1 emekli, yaml'da yalnızca v2 aktif."""
         cfg = load_llm_config("config/llm_config.yaml")
-        assert cfg.effective_prompt_versions == [
-            "trading_analysis_v1", "trading_analysis_v2"
-        ]
+        assert cfg.effective_prompt_versions == ["trading_analysis_v2"]
         assert cfg.rate_limit.requests_per_minute == 20
 
     def test_repo_v2_template_loads(self) -> None:

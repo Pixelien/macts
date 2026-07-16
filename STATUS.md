@@ -169,6 +169,13 @@
 - Operasyonel: 30 RPM tavanda dahi 151× 429 → tavan 20 RPM'e indirildi; 38 parse hatası (%1.4) → tek retry eklendi
 - **Karar: LLM_WEIGHT=0 kalır, bandit ertelendi, yatırım prompt v2'ye**
 
+**Paket 5 teslim edildi (Dayanıklılık)** — 4 günlük sessiz kesinti (12-16 Tem) ve zombi birikimi (4515 process) sonrası:
+- **Kök düzeltme**: Prometheus scrape hedeflerinde `agent-ai-analyst` eksikti — haftalardır hiçbir AI Analyst metriği toplanmıyordu, dashboard boştu. Eklendi.
+- ai_analyst'e feature staleness watchdog'u: `macts_ai_analyst_feature_staleness_seconds` gauge + 10 dk eşiğinde warning logu
+- feature_engineering'e donma dedektörü: hazır sembol varken sayaç 15 dk ilerlemezse hata loglayıp çıkar; `restart: unless-stopped` temiz diriltir (35 saatlik zombi donmasının kök çözümü)
+- node-exporter servisi (128M limitli) + `monitoring/prometheus/rules/macts_alerts.yml`: 7 alarm, her biri gerçekten yaşanmış bir arıza desenine karşılık geliyor (staleness, agent down, kota, bellek, swap thrashing, load, zombie birikimi)
+- (16 Tem, VPS'te uygulandı: Kafka `init: true` — zombi üretiminin kaynağı kesildi)
+
 **Aşama 4 / Paket 4 teslim edildi**: Prompt v2 + A/B altyapısı.
 - Agent mum geçmişi buffer'ı tutuyor (son 20 kapanan mum); LLM payload'ında artık sekans var (v1'de few-shot mum içerirken gerçek payload içermiyordu — tutarsızlık giderildi)
 - `trading_analysis_v2`: mean-reversion farkındalığı, sekans-tabanlı trend/tükeniş ayrımı, vade seçim talimatı, kalibrasyon tavanı (max 0.75), 3 few-shot (gerçek payload formatında)

@@ -179,3 +179,61 @@ class TestHelpers:
         """stream:{topic}.{symbol_lowercase} konvansiyonu."""
         assert features_stream("BTCUSDT") == "stream:features.btcusdt"
         assert ai_analysis_stream("BTCUSDT") == "stream:ai_analysis.btcusdt"
+
+
+class TestStalenessWatchdog:
+    """Paket 5: feature tazeliği watchdog'unun saf mantığı.
+
+    Agent'taki _update_staleness ile aynı algoritma: en TAZE feature'ın
+    yaşı esas alınır (tek sembol bile taze veri alıyorsa hat canlıdır;
+    tüm hat donduğunda -- 10 Tem vakası -- yaş hep birlikte büyür).
+    """
+
+    @staticmethod
+    def staleness(last_feature_at: dict[str, float], now: float) -> float | None:
+        if not last_feature_at:
+            return None
+        return now - max(last_feature_at.values())
+
+    def test_no_data_yet_returns_none(self) -> None:
+        assert self.staleness({}, now=1000.0) is None
+
+    def test_fresh_pipeline(self) -> None:
+        ages = {"BTCUSDT": 995.0, "ETHUSDT": 940.0}
+        assert self.staleness(ages, now=1000.0) == 5.0  # en tazesi 5 sn önce
+
+    def test_frozen_pipeline_detected(self) -> None:
+        """10 Tem deseni: tüm semboller aynı anda donar, yaş birlikte büyür."""
+        ages = {"BTCUSDT": 1000.0, "ETHUSDT": 990.0}
+        assert self.staleness(ages, now=1000.0 + 700) == 700.0  # > 600 eşiği
+
+    def test_one_live_symbol_keeps_pipeline_fresh(self) -> None:
+        ages = {"BTCUSDT": 100.0, "ETHUSDT": 995.0}  # ETH hâlâ akıyor
+        assert self.staleness(ages, now=1000.0) == 5.0
+
+
+class TestStallDetector:
+    """Paket 5: feature_engineering donma dedektörünün saf mantığı."""
+
+    @staticmethod
+    def is_stalled(count: int, last_count: int, ready: int,
+                   now: float, last_progress: float, window: float = 900.0) -> bool:
+        if count != last_count:
+            return False  # ilerleme var
+        return ready > 0 and (now - last_progress) > window
+
+    def test_progress_resets(self) -> None:
+        assert not self.is_stalled(101, 100, ready=16, now=5000, last_progress=0)
+
+    def test_stall_with_ready_symbols_triggers(self) -> None:
+        """35 saatlik zombi deseni: sayaç sabit, semboller hazır."""
+        assert self.is_stalled(459267, 459267, ready=16,
+                               now=1000.0, last_progress=0.0)
+
+    def test_no_ready_symbols_is_not_a_stall(self) -> None:
+        """Backfill/başlangıç aşaması: yayın olmaması normal."""
+        assert not self.is_stalled(0, 0, ready=0, now=1000.0, last_progress=0.0)
+
+    def test_within_window_tolerated(self) -> None:
+        assert not self.is_stalled(100, 100, ready=16,
+                                   now=800.0, last_progress=0.0)

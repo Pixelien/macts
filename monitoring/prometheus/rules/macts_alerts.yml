@@ -1,0 +1,73 @@
+# =============================================================================
+# MACTS alarm kuralları (Paket 5 — Dayanıklılık)
+# Her kural, canlıda GERÇEKTEN yaşanmış bir sessiz arıza desenine karşılık gelir.
+# Görüntüleme: Prometheus UI -> Alerts (http://SUNUCU:9090/alerts)
+# =============================================================================
+
+groups:
+  - name: macts_ai_analyst
+    rules:
+      # Yaşandı: feature producer 35 saat dondu, analiz üretimi sessizce durdu (10 Tem)
+      - alert: AIAnalystFeaturesStale
+        expr: macts_ai_analyst_feature_staleness_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Analyst {{ $value | humanize }}s'dir taze feature görmedi"
+          description: "feature_engineering donmuş olabilir (bkz. 10 Tem zombi vakası). Kontrol: docker-compose logs agent-feature-engineering"
+
+      # Yaşandı: agent 4+ gün Created durumunda kaldı, kimse fark etmedi (12-16 Tem)
+      - alert: AIAnalystDown
+        expr: up{instance="agent-ai-analyst:8000"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI Analyst scrape edilemiyor (container kapalı/başlamamış olabilir)"
+
+      # Yaşandı: 30 RPM tavanda dahi 151x 429 (7-9 Tem) — tekrar tırmanırsa görelim
+      - alert: AIAnalystQuotaNearCap
+        expr: macts_ai_analyst_daily_quota_used > 1800
+        labels:
+          severity: warning
+        annotations:
+          summary: "Günlük LLM kotası 1800'ü aştı (soft cap 2000)"
+
+  - name: macts_node
+    rules:
+      # Yaşandı: RAM bitti, Kafka health check boğuldu (10 Tem); swap thrashing build'i kilitledi (12 Tem)
+      - alert: NodeMemoryPressure
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.08
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kullanılabilir bellek %8'in altında ({{ $value | humanizePercentage }})"
+
+      - alert: NodeSwapThrashing
+        expr: (node_memory_SwapFree_bytes / clamp_min(node_memory_SwapTotal_bytes, 1)) < 0.25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Swap %75+ dolu — thrashing riski (12 Tem build kilitlenmesi deseni)"
+
+      # Yaşandı: load 24'e çıktı, sistem süründü (12 Tem)
+      - alert: NodeHighLoad
+        expr: node_load5 > 8
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5dk load average 15 dakikadır 8'in üstünde ({{ $value }})"
+
+      # Yaşandı: 11 günde 4515 zombie birikti (Kafka health check, 16 Tem'de init:true ile çözüldü)
+      # Bu alarm çözümün KALICI olduğunu denetler — tekrar birikirse haber verir.
+      - alert: NodeZombieAccumulation
+        expr: node_processes_state{state="Z"} > 200
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} zombie process — bir container PID 1'i çocuk toplamıyor (init:true deseni)"

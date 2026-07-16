@@ -21,6 +21,7 @@ Hesaplanan indikatörler:
 from __future__ import annotations
 
 import asyncio
+import time
 import os
 from collections import deque
 from datetime import datetime
@@ -455,6 +456,15 @@ class FeatureEngineeringAgent(BaseAgent):
             self._influx_errors += 1
 
     async def _stats_loop(self) -> None:
+        # Donma dedektörü (Paket 5): 10 Tem'de Kafka krizi sonrası producer
+        # sessizce dondu — counter 35 saat aynı kaldı, container "Up" göründü.
+        # Artık: hazır sembol varken sayaç PROGRESS_WINDOW boyunca hiç
+        # ilerlemezse hata loglayıp process'ten çıkıyoruz; compose'un
+        # restart: unless-stopped politikası temiz bir yeniden başlatma yapar.
+        PROGRESS_WINDOW = 900.0  # 15 dk (normal hız: ~20 feature/dk)
+        last_progress_count = self._features_published
+        last_progress_time = time.time()
+
         while not self._stop_event.is_set():
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=30.0)
@@ -473,6 +483,18 @@ class FeatureEngineeringAgent(BaseAgent):
                     influx_writes=self._influx_writes,
                     influx_errors=self._influx_errors,
                 )
+                now = time.time()
+                if self._features_published != last_progress_count:
+                    last_progress_count = self._features_published
+                    last_progress_time = now
+                elif ready > 0 and now - last_progress_time > PROGRESS_WINDOW:
+                    self.logger.error(
+                        "publish_pipeline_stalled_restarting",
+                        stalled_seconds=round(now - last_progress_time),
+                        features_published=self._features_published,
+                        ready_symbols=ready,
+                    )
+                    os._exit(1)  # bilinçli sert çıkış: restart policy diriltir
 
     async def _shutdown(self) -> None:
         self.logger.info("feature_engineering_shutting_down")

@@ -195,6 +195,25 @@ services:
     networks:
       - macts-net
 
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: macts-node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.processes"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - macts-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: macts-prometheus
@@ -203,6 +222,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

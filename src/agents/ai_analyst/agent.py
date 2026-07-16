@@ -135,6 +135,11 @@ AI_DAILY_QUOTA_USED = Gauge(
     "Bugün kullanılan LLM istek sayısı (soft cap: llm_config.rate_limit.requests_per_day)",
 )
 
+AI_FEATURE_STALENESS = Gauge(
+    "macts_ai_analyst_feature_staleness_seconds",
+    "En taze feature snapshot'ının yaşı (takipteki tüm semboller içinde min)",
+)
+
 AI_OUTCOMES_TOTAL = Counter(
     "macts_ai_analyst_outcomes_total",
     "Değerlendirilen tahmin sonuçları",
@@ -154,6 +159,8 @@ class AIAnalystAgent(BaseAgent):
         self._interval: float = DEFAULT_INTERVAL_SECONDS
         self._scheduler: StaggeredScheduler | None = None
         self._latest_features: dict[str, dict[str, Any]] = {}
+        self._last_feature_at: dict[str, float] = {}
+        self._stale_warned = False
         self._feature_listeners: dict[str, asyncio.Task[None]] = {}
         # LLM katmanı (yalnızca flag açıkken kurulur)
         self._llm_config = None
@@ -313,6 +320,7 @@ class AIAnalystAgent(BaseAgent):
                 self._scheduler.mark_ran(symbol, now=time.time())
             if self._limiter is not None:
                 AI_DAILY_QUOTA_USED.set(self._limiter.daily_used)
+            self._update_staleness(now=time.time())
 
             try:
                 await asyncio.wait_for(
@@ -320,6 +328,30 @@ class AIAnalystAgent(BaseAgent):
                 )
             except asyncio.TimeoutError:
                 continue
+
+    def _update_staleness(self, now: float) -> None:
+        """Feature tazeliği watchdog'u (Paket 5).
+
+        10 Tem vakası: feature producer 35 saat dondu, agent sessizce her
+        turu atladı, kimse fark etmedi. Artık: en taze feature'ın yaşı
+        gauge olarak yayınlanır (Prometheus alarmı: AIAnalystFeaturesStale)
+        ve eşik aşımında warning loglanır (tek sefer, düzelince sıfırlanır).
+        """
+        if not self._last_feature_at:
+            return
+        staleness = now - max(self._last_feature_at.values())
+        AI_FEATURE_STALENESS.set(staleness)
+        if staleness > 600 and not self._stale_warned:
+            self._stale_warned = True
+            self.logger.warning(
+                "features_stale",
+                staleness_seconds=round(staleness),
+                hint="feature_engineering donmuş olabilir — "
+                     "docker-compose logs agent-feature-engineering",
+            )
+        elif staleness <= 600 and self._stale_warned:
+            self._stale_warned = False
+            self.logger.info("features_fresh_again")
 
     async def _shutdown(self) -> None:
         """Kaynak temizliği."""
@@ -412,6 +444,7 @@ class AIAnalystAgent(BaseAgent):
                 if self._stop_event.is_set():
                     break
                 self._latest_features[symbol] = msg
+                self._last_feature_at[symbol] = time.time()
         except asyncio.CancelledError:
             raise
         except Exception as e:
