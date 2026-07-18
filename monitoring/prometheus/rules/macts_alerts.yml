@@ -28,11 +28,11 @@ groups:
 
       # Yaşandı: 30 RPM tavanda dahi 151x 429 (7-9 Tem) — tekrar tırmanırsa görelim
       - alert: AIAnalystQuotaNearCap
-        expr: macts_ai_analyst_daily_quota_used > 1800
+        expr: macts_ai_analyst_daily_quota_used > 800
         labels:
           severity: warning
         annotations:
-          summary: "Günlük LLM kotası 1800'ü aştı (soft cap 2000)"
+          summary: "Günlük LLM kotası 800'ü aştı (soft cap 900, gerçek NVIDIA tavanı ~1000)"
 
   - name: macts_node
     rules:

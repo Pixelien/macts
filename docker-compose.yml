@@ -290,6 +290,7 @@ services:
       resources:
         limits:
           memory: 8G
+          cpus: "2"  # torch eğitimi sınırsızken load 16'ya çıkıp sistemi boğuyordu (18 Tem)
 
   agent-risk-management:
     <<: *agent-base
@@ -368,7 +369,7 @@ services:
     environment:
       AGENT_NAME: ai_analyst
       ENABLE_AI_ANALYST: ${ENABLE_AI_ANALYST:-false}
-      AI_ANALYST_INTERVAL_SECONDS: ${AI_ANALYST_INTERVAL_SECONDS:-900}
+      AI_ANALYST_INTERVAL_SECONDS: ${AI_ANALYST_INTERVAL_SECONDS:-1800}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
 
 # =============================================================================

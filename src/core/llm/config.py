@@ -32,11 +32,11 @@ class LLMRateLimitConfig(BaseModel):
     """Kota kısıtları — NVIDIA ücretsiz katman: ~40 RPM, anahtar bazında global."""
 
     requests_per_minute: int = 20   # canlıda 30 RPM'de dahi 429 gözlendi (151 adet/2.5 gün) -> tavan düşürüldü
-    requests_per_day: int = 2000    # günlük soft cap (rapor §5)
+    requests_per_day: int = 900     # gerçek NVIDIA günlük tavanı ~1000 (17-18 Tem ölçümü) — altında kal
 
 
 class LLMCacheConfig(BaseModel):
-    ttl_seconds: int = 840  # analiz aralığının (900s) hemen altı
+    ttl_seconds: int = 1740  # analiz aralığının (1800s) hemen altı
 
 
 class LLMConfig(BaseModel):

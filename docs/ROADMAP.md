@@ -118,6 +118,7 @@
 - [x] Aşama 2 / Paket 2: `src/core/llm/` — nvidia_client, rate_limiter (30 RPM token bucket), backoff, Redis cache, fallback_chain (429≠5xx politikası), usage_tracker (Postgres llm_usage_log), agent'a tam entegrasyon, 39 unit test
 - [~] Aşama 3: Prompt versiyonlama — config/prompts/trading_analysis_v1.yaml (semver + few-shot) teslim edildi; MLflow experiment entegrasyonu Aşama 4 ile birlikte gelecek
 - [x] Paket 5 (Dayanıklılık): staleness watchdog, donma dedektörü, node-exporter + 7 Prometheus alarmı, ai-analyst scrape düzeltmesi, kafka init:true
+- [x] NİHAİ KARAR (18 Tem): Aşama 5 iptal — LLM yön edge'i yok (12 gün ölçüm, rapor §9). Bandit iptal. Yeni yön: risk-context rolü (docs/AI_RISK_CONTEXT_DESIGN.md, onay bekliyor)
 - [~] Aşama 4 (ilk yarı teslim): prediction outcome job (llm_prediction + llm_prediction_outcome tabloları, 5 dk'lık değerlendirme döngüsü, kline tabanlı entry/exit fiyat takibi), Grafana "AI Analyst Performance" dashboard'u, yeni Prometheus metrikleri (outcomes, latency histogram, günlük kota gauge). İkinci yarı (epsilon-greedy bandit + MLflow) outcome verisi biriktikten sonra — plan: .claude/skills/continuous-improvement-loop
 - [ ] Aşama 5: Signal Generation entegrasyonu (ML_WEIGHT/LLM_WEIGHT, başlangıçta LLM ağırlığı düşük)
 

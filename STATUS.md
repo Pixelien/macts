@@ -169,6 +169,12 @@
 - Operasyonel: 30 RPM tavanda dahi 151× 429 → tavan 20 RPM'e indirildi; 38 parse hatası (%1.4) → tek retry eklendi
 - **Karar: LLM_WEIGHT=0 kalır, bandit ertelendi, yatırım prompt v2'ye**
 
+**Paket 6 teslim edildi (Nihai Değerlendirme + Rol Değişikliği)** — 18 Tem:
+- **NİHAİ SONUÇ**: 12 gün / ~5.900 outcome sonrası LLM yön doğruluğu tüm vade/yön kombinasyonlarında baz oran ±3 puan — **Aşama 5 açılmıyor, LLM_WEIGHT=0 kalıcı** (tablo: rapor §9)
+- **Kota gerçeği ölçüldü**: NVIDIA ücretsiz katman gerçek günlük tavanı ~1.000 istek (17-18 Tem: 10 saat kesintisiz 429 duvarı, 03:00 reset). Düzeltme: kadans 15dk→**30dk** (960/gün), soft cap 2000→**900**, alarm eşiği 800
+- per-coin-learning'e **CPU limiti (2 çekirdek)** — sınırsız torch eğitimi load'u 16'ya çıkarıyordu
+- **Rol değişikliği tasarımı**: yön tahmincisi → rejim/risk yorumcusu (gölge modla başlayan 2 kademeli plan): `docs/AI_RISK_CONTEXT_DESIGN.md` — ONAY BEKLİYOR
+
 **Paket 5 teslim edildi (Dayanıklılık)** — 4 günlük sessiz kesinti (12-16 Tem) ve zombi birikimi (4515 process) sonrası:
 - **Kök düzeltme**: Prometheus scrape hedeflerinde `agent-ai-analyst` eksikti — haftalardır hiçbir AI Analyst metriği toplanmıyordu, dashboard boştu. Eklendi.
 - ai_analyst'e feature staleness watchdog'u: `macts_ai_analyst_feature_staleness_seconds` gauge + 10 dk eşiğinde warning logu

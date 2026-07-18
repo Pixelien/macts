@@ -22,7 +22,7 @@ fallback:
 
 rate_limit:
   requests_per_minute: 20   # 30 RPM'de dahi canlıda 429 gözlendi (151/2.5 gün) — pay artırıldı
-  requests_per_day: 2000    # günlük soft cap (rapor §5)
+  requests_per_day: 900     # GERÇEK günlük tavan ~1000 ölçüldü (17-18 Tem: 10 saat 429 duvarı) — altında kal
 
 cache:
-  ttl_seconds: 840          # analiz aralığının (900s) hemen altı
+  ttl_seconds: 1740         # analiz aralığının (1800s) hemen altı

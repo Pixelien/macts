@@ -225,3 +225,37 @@ farklar: aktif parametre eki (`-a12b`, `-a17b`) ve org adı değişikliği (`zhi
 **Gecikme bütçesi güncellemesi**: Birincil + yedek ikilisinin p95'i ~20s civarı —
 rapordaki 60s tavanının çok altında. 15 dk kadans korunuyor (kota gerekçesi geçerli),
 ancak gecikme artık kısıt değil.
+
+
+---
+
+## 9. Nihai Değerlendirme (18 Temmuz 2026) — Dürüst Sonuç
+
+12 günlük canlı ölçüm, ~5.900 değerlendirilmiş tahmin, iki prompt versiyonu.
+
+**Sonuç: LLM yön tahmini, baz oranlardan ayırt edilemez. Aşama 5 (sinyale
+bağlama) AÇILMAYACAK, LLM_WEIGHT=0 kalıcı.**
+
+Son 2 günlük temiz dönem (16-18 Tem, v2-only, kesintisiz*):
+
+| Vade/Yön | n | Accuracy | Baz oran | Lift |
+|---|---|---|---|---|
+| 4h long | 156 | %43.6 | up %42.6 | +1.0 |
+| 4h short | 86 | %50.0 | down %52.6 | −2.6 |
+| 1h long | 421 | %40.4 | up %39.5 | +0.9 |
+| 1h short | 289 | %45.7 | down %48.7 | −3.0 |
+
+İlk 1.5 günde umut veren 4h sinyali (%50 long, n=68) örneklem büyüyünce baz
+orana geriledi — küçük örneklem gürültüsüydü. v2'nin kazanımları (düzgün
+kalibrasyon, vade çeşitliliği, halüsinasyonsuz gerekçeler) gerçek ama yön
+edge'i üretmeye yetmedi.
+
+(*) 17 Tem 17:00 – 18 Tem 03:00 arası 10 saatlik kesinti: NVIDIA ücretsiz
+katmanının GERÇEK günlük tavanı ~1.000 istek olarak ölçüldü (saatte 80x 429,
+03:00 reset). Belgelenen "40 RPM" sınırının yanında ölçümle bulunan ikinci
+sınır. Düzeltme: kadans 30 dk (960/gün), soft cap 900.
+
+**Devam kararı**: Katman sökülmüyor; rol değiştiriyor. Yön tahmincisi değil
+rejim/risk yorumcusu — tasarım: docs/AI_RISK_CONTEXT_DESIGN.md. Bu deney,
+kurulan ölçüm altyapısının (outcome döngüsü, A/B, baz oran kıyası) tam da
+amaçlandığı gibi çalıştığının kanıtıdır: iddia değil ölçüm konuşmuştur.

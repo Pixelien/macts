@@ -306,6 +306,7 @@ class TestLLMConfig:
         assert cfg.primary.model_id == "nvidia/nemotron-3-super-120b-a12b"
         assert cfg.fallback.model_id == "deepseek-ai/deepseek-v4-pro"
         assert cfg.rate_limit.requests_per_minute == 20
+        assert cfg.rate_limit.requests_per_day == 900  # gerçek tavan ~1000 (17-18 Tem)
         assert cfg.primary.max_tokens >= 4096
 
     def test_missing_file_returns_defaults(self, tmp_path) -> None:

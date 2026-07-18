@@ -14,7 +14,7 @@ Feature flag:
     Faz 2 davranışıyla aynen devam eder. true -> analiz döngüsü aktif.
 
 Kota tasarımı:
-    Sembol başına AI_ANALYST_INTERVAL_SECONDS'ta (varsayılan 900 = 15 dk)
+    Sembol başına AI_ANALYST_INTERVAL_SECONDS'ta (varsayılan 1800 = 30 dk)
     bir analiz; StaggeredScheduler burst'ü engeller. Dakikalık sinyal
     üretimi HER ZAMAN ML modelinden akar — LLM analizi zenginleştiricidir,
     bloklamaz (bkz. rapor §5).
@@ -91,7 +91,7 @@ def kline_stream(symbol: str, interval: str = "1m") -> str:
 
 
 # Env tabanlı konfigürasyon (Paket 2'de config/llm_config.yaml'a taşınacak)
-DEFAULT_INTERVAL_SECONDS = 900.0   # 15 dk — rapor §5 kota bütçesi
+DEFAULT_INTERVAL_SECONDS = 1800.0  # 30 dk — gerçek NVIDIA günlük tavanı ~1000 ölçüldü (17-18 Tem), 20 sembol x 30 dk = 960/gün
 SCHEDULER_TICK_SECONDS = 5.0       # due kontrol sıklığı
 OUTCOME_TICK_SECONDS = 300.0       # tahmin-vs-gerçek değerlendirme sıklığı
 CANDLE_BUFFER_SIZE = 20            # LLM'e verilen mum geçmişi (prompt v2)

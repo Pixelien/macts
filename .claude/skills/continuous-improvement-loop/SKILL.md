@@ -64,7 +64,18 @@ GROUP BY 1,2 ORDER BY 1,2;
 
 Anlamlılık için kol başına min ~500 outcome bekle (~2 gün).
 
-## Bandit / A-B genişletmesi (Aşama 4 ikinci yarı — HENÜZ YAZILMADI)
+## NİHAİ SONUÇ (18 Tem 2026) — bu bölüm tarihsel kayıttır
+
+12 gün / ~5.900 outcome: yön doğruluğu tüm kombinasyonlarda baz oran ±3
+puan (rapor §9 tablosu). KARAR: sinyal entegrasyonu iptal, bandit iptal,
+LLM_WEIGHT=0 kalıcı. Yeni rol: rejim/risk yorumcusu
+(docs/AI_RISK_CONTEXT_DESIGN.md). Ölçülen ikinci kota sınırı: ~1000
+istek/gün (429 duvarı deseni: saatte istek hacmi kadar 429 + sabah reset).
+Yeni analiz eklerken accuracy'yi ASLA tek başına okuma — her zaman aynı
+dönemin baz oranıyla (actual_direction dağılımı) kıyasla; ilk 4h "edge"i
+(n=68'de %50) örneklem büyüyünce buharlaşan gürültüydü.
+
+## Bandit / A-B genişletmesi (İPTAL — tarihsel referans)
 
 Ön koşul: en az ~3-5 gün outcome verisi (horizon başına 100+ örnek) birikmeli;
 daha azıyla kol karşılaştırması gürültüden ibaret olur.
