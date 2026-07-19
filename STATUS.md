@@ -140,6 +140,16 @@
 
 ---
 
+## Bilinen Altyapı Sorunları
+
+**Docker çift-kurulum (snap + apt) — teşhis: 19 Tem 2026**: VPS'te hem apt (`docker.io`) hem Docker snap paketi kurulu ve ikisi de systemd'de enabled/running. Boot'ta snap'in dockerd'i apt'ninkinden ~8sn geç başlayıp `/var/run/docker.sock`'u kendi adına yeniden bağlıyor (soket yarışı) — bu yüzden şu an TÜM `docker`/`docker-compose` trafiği fiilen **snap** engine'ine gidiyor (77G veri, 24 container, 15 `macts_*` volume). Apt'nin kendi `dockerd`'i systemd'de "active running" görünse de o soketin arkasında değil; kendi data-root'u tamamen boş (0 container, 0 volume).
+
+**Risk**: Bu deterministik değil, bir soket yarış durumu — sıralama bir sonraki reboot'ta tersine dönerse `docker ps`/`docker-compose ps` aniden boş dönebilir. Veri kaybolmaz (snap tarafında sağlam kalır) ama görünmez hale gelir; bu durumda yanlışlıkla apt tarafında sıfırdan ikinci, boş bir stack başlatma riski var.
+
+**Plan yönü**: apt kurulumunu (`docker.service`, `docker.socket`, `docker.io` paketi) kaldırıp snap'i tek engine olarak bırakmak — veri zaten snap tarafında, taşımaya gerek yok. Henüz uygulanmadı, onay bekliyor.
+
+---
+
 ## Faz 3 — AI Analyst Katmanı (Devam Ediyor)
 
 **Aşama 0 tamamlandı (5 Tem 2026)**: NVIDIA NIM model seçimi canlı probe ile kilitlendi.
